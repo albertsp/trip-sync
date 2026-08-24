@@ -1,0 +1,17 @@
+
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: tripsync
+      POSTGRES_PASSWORD: tripsync123
+      POSTGRES_DB: tripsync_data
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
