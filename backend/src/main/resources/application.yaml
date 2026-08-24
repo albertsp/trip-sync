@@ -1,3 +1,7 @@
 spring:
   application:
     name: backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tripsync_data
+    username: tripsync
+    password: tripsync123
