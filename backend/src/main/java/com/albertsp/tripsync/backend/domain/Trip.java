@@ -1,6 +1,7 @@
 package com.albertsp.tripsync.backend.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,10 +18,12 @@ public class Trip {
     private String title;
     private LocalDate windowStart;
     private LocalDate windowEnd;
+
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @Enumerated(EnumType.STRING)
-    private TripStatus status;
+    private TripStatus status = TripStatus.OPEN;
 
     public UUID getId() {
         return id;
