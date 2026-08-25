@@ -2,14 +2,14 @@ package com.albertsp.tripsync.backend.controllers;
 
 import com.albertsp.tripsync.backend.controllers.dtos.CreateTripRequest;
 import com.albertsp.tripsync.backend.controllers.dtos.TripResponse;
+import com.albertsp.tripsync.backend.controllers.exceptions.ResourceNotFoundException;
 import com.albertsp.tripsync.backend.domain.Trip;
 import com.albertsp.tripsync.backend.repositories.TripRepository;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.UUID;
 
 
 @RestController
@@ -36,5 +36,16 @@ public class TripController {
         TripResponse response = new TripResponse(saved.getId(), saved.getTitle(), saved.getWindowStart(), saved.getWindowEnd(), saved.getStatus(), saved.getCreatedAt());
 
         return ResponseEntity.created(URI.create("/trips/" + saved.getId())).body(response);
+    }
+
+    @GetMapping("/trips/{id}")
+    public ResponseEntity<TripResponse> getTripById(@PathVariable UUID id){
+
+        Trip trip = tripRepository.findById(id)
+                .orElseThrow( () -> new ResourceNotFoundException(" Trip not found with id: " + id));
+
+        TripResponse response = new TripResponse(trip.getId(),trip.getTitle(), trip.getWindowStart(), trip.getWindowEnd(), trip.getStatus(), trip.getCreatedAt());
+
+        return ResponseEntity.ok(response);
     }
 }
