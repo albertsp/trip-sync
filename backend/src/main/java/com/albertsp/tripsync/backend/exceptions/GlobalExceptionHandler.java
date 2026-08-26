@@ -1,7 +1,7 @@
-package com.albertsp.tripsync.backend.controllers.exceptions;
+package com.albertsp.tripsync.backend.exceptions;
 
 
-import com.albertsp.tripsync.backend.controllers.dtos.ErrorResponse;
+import com.albertsp.tripsync.backend.dtos.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

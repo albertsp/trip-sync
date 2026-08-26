@@ -1,4 +1,4 @@
-package com.albertsp.tripsync.backend.controllers.dtos;
+package com.albertsp.tripsync.backend.dtos;
 
 import com.albertsp.tripsync.backend.domain.TripStatus;
 

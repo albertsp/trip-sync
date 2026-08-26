@@ -1,4 +1,4 @@
-package com.albertsp.tripsync.backend.controllers.exceptions;
+package com.albertsp.tripsync.backend.exceptions;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;

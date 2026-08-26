@@ -1,8 +1,8 @@
 package com.albertsp.tripsync.backend.controllers;
 
-import com.albertsp.tripsync.backend.controllers.dtos.CreateTripRequest;
-import com.albertsp.tripsync.backend.controllers.dtos.TripResponse;
-import com.albertsp.tripsync.backend.controllers.exceptions.ResourceNotFoundException;
+import com.albertsp.tripsync.backend.dtos.CreateTripRequest;
+import com.albertsp.tripsync.backend.dtos.TripResponse;
+import com.albertsp.tripsync.backend.exceptions.ResourceNotFoundException;
 import com.albertsp.tripsync.backend.domain.Trip;
 import com.albertsp.tripsync.backend.repositories.TripRepository;
 import org.springframework.http.ResponseEntity;
