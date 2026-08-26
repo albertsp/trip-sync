@@ -2,9 +2,9 @@ package com.albertsp.tripsync.backend.controllers;
 
 import com.albertsp.tripsync.backend.dtos.CreateTripRequest;
 import com.albertsp.tripsync.backend.dtos.TripResponse;
-import com.albertsp.tripsync.backend.exceptions.ResourceNotFoundException;
 import com.albertsp.tripsync.backend.domain.Trip;
 import com.albertsp.tripsync.backend.repositories.TripRepository;
+import com.albertsp.tripsync.backend.service.TripService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,9 +16,11 @@ import java.util.UUID;
 public class TripController {
 
     private final TripRepository tripRepository;
+    private final TripService tripService;
 
-    public TripController(TripRepository tripRepository) {
+    public TripController(TripRepository tripRepository, TripService tripService) {
         this.tripRepository = tripRepository;
+        this.tripService = tripService;
     }
 
 
@@ -41,11 +43,12 @@ public class TripController {
     @GetMapping("/trips/{id}")
     public ResponseEntity<TripResponse> getTripById(@PathVariable UUID id){
 
-        Trip trip = tripRepository.findById(id)
-                .orElseThrow( () -> new ResourceNotFoundException(" Trip not found with id: " + id));
+        Trip trip = tripService.getTripEntityById(id);
 
         TripResponse response = new TripResponse(trip.getId(),trip.getTitle(), trip.getWindowStart(), trip.getWindowEnd(), trip.getStatus(), trip.getCreatedAt());
 
         return ResponseEntity.ok(response);
     }
+
+    
 }
