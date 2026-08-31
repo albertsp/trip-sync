@@ -50,5 +50,5 @@ public class TripController {
         return ResponseEntity.ok(response);
     }
 
-    
+
 }
