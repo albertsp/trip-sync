@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { useParams } from "react-router-dom";
 import "react-day-picker/dist/style.css";
+import { API_BASE_URL } from "../lib/api";
+import { dateToString, stringToDate } from "../lib/date";
 
 type TripCurrency = "EUR" | "USD";
 
@@ -18,11 +20,11 @@ interface ParticipantResponse {
   budgetCurrency: string;
   editToken: string;
 }
-function dateToString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+
+interface TripWindow {
+  title: string;
+  windowStart: Date;
+  windowEnd: Date;
 }
 
 export function JoinForm() {
@@ -41,6 +43,49 @@ export function JoinForm() {
   );
 
   const [error, setError] = useState<string | null>(null);
+
+  const [trip, setTrip] = useState<TripWindow | null>(null);
+  const [tripStatus, setTripStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchTrip() {
+      setTripStatus("loading");
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/trips/${tripId}`);
+
+        if (!response.ok) {
+          throw new Error(`Server Error: ${response.status}`);
+        }
+
+        const data: { title: string; windowStart: string; windowEnd: string } =
+          await response.json();
+
+        if (cancelled) return;
+
+        setTrip({
+          title: data.title,
+          windowStart: stringToDate(data.windowStart),
+          windowEnd: stringToDate(data.windowEnd),
+        });
+        setTripStatus("ready");
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Error: ", err);
+        setTripStatus("error");
+      }
+    }
+
+    fetchTrip();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId]);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -66,7 +111,7 @@ export function JoinForm() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/trips/${tripId}/participants`,
+        `${API_BASE_URL}/trips/${tripId}/participants`,
         {
           method: "POST",
           headers: {
@@ -92,45 +137,112 @@ export function JoinForm() {
   }
 
   return (
-    <>
-      {(status === "idle" || status === "loading") && (
-        <form onSubmit={handleSubmit}>
-          {error && <p role="alert">{error}</p>}
-          <input
-            type="text"
-            name="name"
-            value={join.name}
-            onChange={handleChange}
-          />
-          <DayPicker
-            required={true}
-            mode="multiple"
-            selected={availableDates}
-            onSelect={setAvailableDates}
-          />
-          <input
-            type="number"
-            name="budgetAmount"
-            value={join.budgetAmount}
-            onChange={handleChange}
-          />
-          <select
-            name="budgetCurrency"
-            value={join.budgetCurrency}
-            onChange={handleChange}
-          >
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-          </select>
+    <div className="page">
+      <div className="ticket">
+        <span className="ticket-eyebrow">TripSync · Unirse al viaje</span>
 
-          <button type="submit" disabled={status === "loading"}>
-            Enviar
-          </button>
-        </form>
-      )}
-      {status === "success" && (
-        <p>Bienvenido {participant?.name}, te has unido al viaje!</p>
-      )}
-    </>
+        {tripStatus === "loading" && <p>Cargando viaje...</p>}
+        {tripStatus === "error" && (
+          <p role="alert">No se ha podido cargar el viaje</p>
+        )}
+
+        {tripStatus === "ready" &&
+          trip &&
+          (status === "idle" || status === "loading") && (
+            <>
+              <h1 className="ticket-title">¿Cuándo te viene bien?</h1>
+              <p className="ticket-subtitle">
+                Te han invitado a <strong>{trip.title}</strong>. Marca los días
+                en los que estás disponible e indica tu presupuesto.
+              </p>
+
+              <form onSubmit={handleSubmit}>
+                {error && <p role="alert">{error}</p>}
+
+                <div className="field">
+                  <label htmlFor="name">Tu nombre</label>
+                  <input
+                    id="name"
+                    type="text"
+                    name="name"
+                    placeholder="Ana García"
+                    value={join.name}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="field">
+                  <span className="field-label-text">Fechas disponibles</span>
+                  <div className="calendar-frame">
+                    <DayPicker
+                      required={true}
+                      mode="multiple"
+                      selected={availableDates}
+                      onSelect={setAvailableDates}
+                      defaultMonth={trip.windowStart}
+                      startMonth={trip.windowStart}
+                      endMonth={trip.windowEnd}
+                      disabled={{
+                        before: trip.windowStart,
+                        after: trip.windowEnd,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="field-row">
+                  <div className="field">
+                    <label htmlFor="budgetAmount">Presupuesto</label>
+                    <input
+                      id="budgetAmount"
+                      type="number"
+                      name="budgetAmount"
+                      placeholder="300"
+                      value={join.budgetAmount}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="budgetCurrency">Divisa</label>
+                    <select
+                      id="budgetCurrency"
+                      name="budgetCurrency"
+                      value={join.budgetCurrency}
+                      onChange={handleChange}
+                    >
+                      <option value="EUR">EUR</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={status === "loading"}>
+                  Unirse al viaje
+                </button>
+              </form>
+            </>
+          )}
+
+        {status === "success" && (
+          <>
+            <h1 className="ticket-title">¡Estás dentro!</h1>
+            <p className="ticket-subtitle">
+              Bienvenido {participant?.name}, te has unido al viaje.
+            </p>
+          </>
+        )}
+
+        <div className="ticket-divider" />
+        <div className="ticket-footer">
+          <span>TRIPSYNC · PLANEAD JUNTOS</span>
+          <strong>
+            {participant
+              ? participant.id.slice(0, 8).toUpperCase()
+              : "PENDIENTE"}
+          </strong>
+        </div>
+      </div>
+    </div>
   );
 }
