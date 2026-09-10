@@ -25,7 +25,7 @@ export interface Participant {
   id: string;
   name: string;
   budgetAmount: number;
-  budgetCurrency: string;
+  budgetCurrency: TripCurrency;
   editToken: string;
 }
 
