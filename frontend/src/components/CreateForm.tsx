@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
 
 interface CreateTripForm {
   title: string;
@@ -35,7 +36,7 @@ export function CreateForm() {
     setStatus("loading");
 
     try {
-      const response = await fetch("http://localhost:8080/trips", {
+      const response = await fetch(`${API_BASE_URL}/trips`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,40 +57,87 @@ export function CreateForm() {
     }
   }
   return (
-    <>
-      {(status === "idle" || status === "loading") && (
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            name="title"
-            value={form.title}
-            onChange={handleChange}
-          />
+    <div className="page">
+      <div className="ticket">
+        <span className="ticket-eyebrow">TripSync · Nuevo viaje</span>
 
-          <input
-            type="date"
-            name="windowStart"
-            value={form.windowStart}
-            onChange={handleChange}
-          />
+        {(status === "idle" || status === "loading") && (
+          <>
+            <h1 className="ticket-title">Planea tu próxima escapada</h1>
+            <p className="ticket-subtitle">
+              Define un título y el rango de fechas posibles para que tus
+              amigos indiquen su disponibilidad.
+            </p>
 
-          <input
-            type="date"
-            name="windowEnd"
-            value={form.windowEnd}
-            onChange={handleChange}
-          />
+            <form onSubmit={handleSubmit}>
+              <div className="field">
+                <label htmlFor="title">Título del viaje</label>
+                <input
+                  id="title"
+                  type="text"
+                  name="title"
+                  placeholder="Escapada de otoño"
+                  value={form.title}
+                  onChange={handleChange}
+                />
+              </div>
 
-          <button type="submit">Create Trip</button>
-        </form>
-      )}
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="windowStart">Desde</label>
+                  <input
+                    id="windowStart"
+                    type="date"
+                    name="windowStart"
+                    value={form.windowStart}
+                    onChange={handleChange}
+                  />
+                </div>
 
-      {status === "success" && (
-        <div>
-          <p>Share your link:</p>
-          <p>{"http://localhost:5173/trips/" + trip?.id}</p>
+                <div className="field">
+                  <label htmlFor="windowEnd">Hasta</label>
+                  <input
+                    id="windowEnd"
+                    type="date"
+                    name="windowEnd"
+                    value={form.windowEnd}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" disabled={status === "loading"}>
+                Crear viaje
+              </button>
+            </form>
+          </>
+        )}
+
+        {status === "success" && (
+          <>
+            <h1 className="ticket-title">¡Viaje emitido!</h1>
+            <p className="ticket-subtitle">
+              Comparte este enlace con tus amigos para que se unan.
+            </p>
+            <div className="field">
+              <label htmlFor="share-link">Enlace de invitación</label>
+              <input
+                id="share-link"
+                type="text"
+                readOnly
+                value={`${APP_BASE_URL}/trips/${trip?.id}`}
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="ticket-divider" />
+        <div className="ticket-footer">
+          <span>TRIPSYNC · PLANEAD JUNTOS</span>
+          <strong>{trip ? trip.id.slice(0, 8).toUpperCase() : "SIN EMITIR"}</strong>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
