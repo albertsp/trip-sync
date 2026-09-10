@@ -1,0 +1,434 @@
+:root {
+  /* Ink (page canvas) */
+  --ink: #142138;
+  --ink-soft: #1b2c4a;
+
+  /* Paper (ticket surface) */
+  --paper: #faf6ea;
+  --paper-edge: #efe6d1;
+  --line: #d8cba9;
+
+  --text: #221f19;
+  --text-muted: #8a8168;
+
+  --accent: #d9662c;
+  --accent-dark: #b84f1f;
+  --accent-contrast: #fff8ef;
+
+  --danger: #a3341f;
+  --danger-bg: #f6e3da;
+
+  --ticket-padding-x: 32px;
+
+  --font-display: "Fraunces", serif;
+  --font-body: "Work Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --heat-0: #efe6d1;
+  --heat-1: #eec9a0;
+  --heat-2: #e6a468;
+  --heat-3: #d9662c;
+  --heat-4: #8f3a15;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Page shell: centers a single ticket on a dotted canvas */
+.page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 64px 16px;
+  background-image: radial-gradient(var(--ink-soft) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Ticket / boarding-pass card */
+.ticket {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background-color: var(--paper);
+  color: var(--text);
+  border-radius: 16px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.35),
+    0 2px 0 rgba(255, 255, 255, 0.4) inset;
+  padding: 36px var(--ticket-padding-x);
+}
+
+.ticket-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  margin: 0 0 14px;
+}
+
+.ticket-eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent);
+}
+
+.ticket-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-size: 1.85rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.ticket-subtitle {
+  margin: 0 0 28px;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Perforated divider: spans the full ticket edge-to-edge via a negative
+   margin derived from --ticket-padding-x (the ticket's own horizontal
+   padding), so the die-cut notches always land exactly on the card
+   border, even if that padding changes. */
+.ticket-divider {
+  position: relative;
+  margin: 28px calc(-1 * var(--ticket-padding-x));
+  border-top: 2px dashed var(--line);
+}
+
+.ticket-divider::before,
+.ticket-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: var(--ink);
+  transform: translateY(-50%);
+}
+
+.ticket-divider::before {
+  left: -13px;
+}
+
+.ticket-divider::after {
+  right: -13px;
+}
+
+.ticket-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.ticket-footer strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Forms */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 22px;
+}
+
+.field label,
+.field-label-text {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: -2px 0 0;
+}
+
+.field-row {
+  display: flex;
+  gap: 20px;
+}
+
+.field-row .field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+  font: inherit;
+  font-family: var(--font-body);
+  color: var(--text);
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+  padding: 6px 2px 10px;
+  width: 100%;
+  transition: border-color 0.15s ease;
+}
+
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238a8168' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 2px center;
+  background-size: 11px;
+}
+
+/* Calendar insert: frames the interactive DayPicker like a detachable
+   stub within the ticket. Overrides RDP's own CSS variables (scoped to
+   .rdp-root) with the ticket palette; ".calendar-frame .rdp-root" needs
+   no !important because two classes already out-specify the library's
+   single-class ".rdp-root" rule that loads after this file. */
+.calendar-frame {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 12px 4px;
+}
+
+.calendar-frame .rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: rgba(217, 102, 44, 0.14);
+  --rdp-today-color: var(--accent-dark);
+  --rdp-day_button-border-radius: 8px;
+  width: 100%;
+}
+
+.calendar-frame .rdp-month_caption {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.calendar-frame .rdp-weekday {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.calendar-frame .rdp-chevron {
+  fill: var(--text-muted);
+}
+
+.calendar-frame .rdp-button_next:hover .rdp-chevron,
+.calendar-frame .rdp-button_previous:hover .rdp-chevron {
+  fill: var(--accent);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 13px 16px;
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(217, 102, 44, 0.35);
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+button[type="submit"]::after {
+  content: "\2192";
+  font-family: var(--font-body);
+}
+
+button[type="submit"]:hover:not(:disabled) {
+  background-color: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(217, 102, 44, 0.45);
+}
+
+button[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button[type="submit"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+[role="alert"] {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 0 20px;
+}
+
+/*
+ * SummaryTrip heatmap.
+ * The DayPicker is rendered with `disabled={() => true}` to make it fully
+ * read-only (see SummaryTrip.tsx). That adds the library's own ".rdp-disabled"
+ * class, which dims every day via `opacity`. Because "react-day-picker/dist/style.css"
+ * is imported from inside the component tree, it loads *after* this file in the
+ * bundle, so an equal-specificity rule here would lose the cascade. `!important`
+ * is the simplest way to guarantee our heat colors stay fully visible.
+ */
+.rdp-day.heat-0,
+.rdp-day.heat-1,
+.rdp-day.heat-2,
+.rdp-day.heat-3,
+.rdp-day.heat-4 {
+  opacity: 1 !important;
+  border-radius: 8px;
+}
+
+.rdp-day.heat-0 {
+  background-color: var(--heat-0);
+}
+
+.rdp-day.heat-1 {
+  background-color: var(--heat-1);
+}
+
+.rdp-day.heat-2 {
+  background-color: var(--heat-2);
+}
+
+.rdp-day.heat-3 {
+  background-color: var(--heat-3);
+}
+
+.rdp-day.heat-4 {
+  background-color: var(--heat-4);
+  color: #fff;
+}
+
+/* SummaryTrip heatmap legend */
+.heat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.heat-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.heat-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* Stat block: a single labeled figure (e.g. suggested budget) */
+.stat {
+  margin-bottom: 22px;
+}
+
+.stat-value {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.stat-value.stat-empty {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+}
+
+.heat-legend-swatch.heat-0 {
+  background-color: var(--heat-0);
+}
+
+.heat-legend-swatch.heat-1 {
+  background-color: var(--heat-1);
+}
+
+.heat-legend-swatch.heat-2 {
+  background-color: var(--heat-2);
+}
+
+.heat-legend-swatch.heat-3 {
+  background-color: var(--heat-3);
+}
+
+.heat-legend-swatch.heat-4 {
+  background-color: var(--heat-4);
+}
