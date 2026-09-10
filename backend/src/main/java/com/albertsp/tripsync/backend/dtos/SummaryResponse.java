@@ -4,5 +4,5 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 
-public record SummaryResponse(Map<LocalDate, Long> availabilityByDate, BigDecimal budget) {
+public record SummaryResponse(Map<LocalDate, Long> availabilityByDate, BigDecimal budget, int totalParticipants) {
 }

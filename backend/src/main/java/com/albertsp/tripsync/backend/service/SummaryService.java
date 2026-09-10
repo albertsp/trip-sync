@@ -42,12 +42,13 @@ public class SummaryService {
                         day -> countByDay.getOrDefault(day,0L)
                 ));
         List<Participant> participants = participantRepository.findByTripId(tripId);
+        int totalParticipants = participants.size();
 
         Optional<BigDecimal> minBudget = participants.stream()
                 .map((participant -> participant.getBudgetAmount()))
                 .min(Comparator.naturalOrder());
         BigDecimal minBudgetValue = minBudget.orElse(null);
 
-        return new SummaryResponse(fullSummary,minBudgetValue);
+        return new SummaryResponse(fullSummary,minBudgetValue, totalParticipants);
     }
 }
