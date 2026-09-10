@@ -1,20 +1,6 @@
 import { useState } from "react";
 import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
-
-interface CreateTripForm {
-  title: string;
-  windowStart: string;
-  windowEnd: string;
-}
-
-interface Trip {
-  id: string;
-  title: string;
-  windowStart: string;
-  windowEnd: string;
-  status: "OPEN" | "CLOSED";
-  createdAt: string;
-}
+import type { CreateTripForm, RequestStatus, Trip } from "../types";
 
 export function CreateForm() {
   const [form, setForm] = useState<CreateTripForm>({
@@ -23,7 +9,7 @@ export function CreateForm() {
     windowEnd: "",
   });
 
-  const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
+  const [status, setStatus] = useState<RequestStatus>("idle");
 
   const [trip, setTrip] = useState<Trip | null>(null);
 
@@ -48,7 +34,7 @@ export function CreateForm() {
         throw new Error(`Server Error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: Trip = await response.json();
       setTrip(data);
       setStatus("success");
     } catch (error) {

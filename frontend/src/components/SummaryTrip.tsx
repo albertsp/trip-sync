@@ -4,12 +4,7 @@ import { useParams } from "react-router-dom";
 import "react-day-picker/dist/style.css";
 import { API_BASE_URL } from "../lib/api";
 import { stringToDate } from "../lib/date";
-
-interface SummaryResponse {
-  availabilityByDate: Record<string, number>;
-  budget: number | null;
-  totalParticipants: number;
-}
+import type { RequestStatus, SummaryResponse } from "../types";
 
 type HeatLevel = "heat-0" | "heat-1" | "heat-2" | "heat-3" | "heat-4";
 
@@ -61,7 +56,7 @@ function buildHeatModifiers(
 export function SummaryTrip() {
   const { id: tripId } = useParams<{ id: string }>();
 
-  const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
+  const [status, setStatus] = useState<RequestStatus>("idle");
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 

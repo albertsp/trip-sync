@@ -4,28 +4,14 @@ import { useParams } from "react-router-dom";
 import "react-day-picker/dist/style.css";
 import { API_BASE_URL } from "../lib/api";
 import { dateToString, stringToDate } from "../lib/date";
-
-type TripCurrency = "EUR" | "USD";
-
-interface JoinTripForm {
-  name: string;
-  budgetAmount: string;
-  budgetCurrency: TripCurrency;
-}
-
-interface ParticipantResponse {
-  id: string;
-  name: string;
-  budgetAmount: number;
-  budgetCurrency: string;
-  editToken: string;
-}
-
-interface TripWindow {
-  title: string;
-  windowStart: Date;
-  windowEnd: Date;
-}
+import type {
+  JoinTripForm,
+  Participant,
+  RequestStatus,
+  Trip,
+  TripFetchStatus,
+  TripWindow,
+} from "../types";
 
 export function JoinForm() {
   const { id: tripId } = useParams<{ id: string }>();
@@ -37,17 +23,13 @@ export function JoinForm() {
   });
 
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
-  const [participant, setParticipant] = useState<ParticipantResponse | null>(
-    null,
-  );
+  const [status, setStatus] = useState<RequestStatus>("idle");
+  const [participant, setParticipant] = useState<Participant | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
   const [trip, setTrip] = useState<TripWindow | null>(null);
-  const [tripStatus, setTripStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
+  const [tripStatus, setTripStatus] = useState<TripFetchStatus>("loading");
 
   useEffect(() => {
     let cancelled = false;
@@ -62,8 +44,7 @@ export function JoinForm() {
           throw new Error(`Server Error: ${response.status}`);
         }
 
-        const data: { title: string; windowStart: string; windowEnd: string } =
-          await response.json();
+        const data: Trip = await response.json();
 
         if (cancelled) return;
 
@@ -125,7 +106,7 @@ export function JoinForm() {
         throw new Error(`Server Error: ${response.status}`);
       }
 
-      const data: ParticipantResponse = await response.json();
+      const data: Participant = await response.json();
       setParticipant(data);
       localStorage.setItem(`tripsync:editToken:${tripId}`, data.editToken);
       setStatus("success");
