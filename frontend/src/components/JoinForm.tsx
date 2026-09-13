@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DayPicker } from "react-day-picker";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import "react-day-picker/dist/style.css";
 import { API_BASE_URL } from "../lib/api";
 import { dateToString, stringToDate } from "../lib/date";
@@ -12,6 +12,19 @@ import type {
   TripFetchStatus,
   TripWindow,
 } from "../types";
+
+function validate(
+  join: JoinTripForm,
+  availableDates: Date[],
+): string | null {
+  if (!join.name.trim()) return "Indica tu nombre";
+  const amount = parseFloat(join.budgetAmount);
+  if (!join.budgetAmount || Number.isNaN(amount) || amount <= 0)
+    return "Indica un presupuesto válido";
+  if (availableDates.length === 0)
+    return "Debes seleccionar al menos un día disponible";
+  return null;
+}
 
 export function JoinForm() {
   const { id: tripId } = useParams<{ id: string }>();
@@ -52,6 +65,7 @@ export function JoinForm() {
           title: data.title,
           windowStart: stringToDate(data.windowStart),
           windowEnd: stringToDate(data.windowEnd),
+          status: data.status,
         });
         setTripStatus("ready");
       } catch (err) {
@@ -76,10 +90,13 @@ export function JoinForm() {
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (availableDates.length === 0) {
-      setError("Debes seleccionar un rango de fechas para continuar");
+
+    const validationError = validate(join, availableDates);
+    if (validationError) {
+      setError(validationError);
       return;
     }
+
     setStatus("loading");
     setError(null);
     const dates = availableDates.map(dateToString);
@@ -117,22 +134,45 @@ export function JoinForm() {
     }
   }
 
+  const isClosed = tripStatus === "ready" && trip?.status === "CLOSED";
+
   return (
     <div className="app-shell">
-      <div className="brand">
+      <Link to="/" className="brand">
         <span className="brand-mark">TS</span>
         TripSync
-      </div>
+      </Link>
       <div className="panel">
         <span className="panel-eyebrow">Unirse al viaje</span>
 
-        {tripStatus === "loading" && <p>Cargando viaje...</p>}
+        {tripStatus === "loading" && (
+          <p className="panel-loading">Cargando viaje...</p>
+        )}
         {tripStatus === "error" && (
-          <p role="alert">No se ha podido cargar el viaje</p>
+          <>
+            <p role="alert">No se ha podido cargar el viaje</p>
+            <Link to="/" className="panel-link">
+              ← Crear un nuevo viaje
+            </Link>
+          </>
+        )}
+
+        {isClosed && (
+          <>
+            <h1 className="panel-title">Este viaje ya está cerrado</h1>
+            <p className="panel-subtitle">
+              Ya no se admiten nuevas disponibilidades para{" "}
+              <strong>{trip?.title}</strong>.
+            </p>
+            <Link to={`/trips/${tripId}/summary`} className="panel-link">
+              Ver disponibilidad del grupo →
+            </Link>
+          </>
         )}
 
         {tripStatus === "ready" &&
           trip &&
+          !isClosed &&
           (status === "idle" || status === "loading") && (
             <>
               <h1 className="panel-title">¿Cuándo te viene bien?</h1>
@@ -141,7 +181,7 @@ export function JoinForm() {
                 en los que estás disponible e indica tu presupuesto.
               </p>
 
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} noValidate>
                 {error && <p role="alert">{error}</p>}
 
                 <div className="field">
@@ -215,6 +255,9 @@ export function JoinForm() {
             <p className="panel-subtitle">
               Bienvenido {participant?.name}, te has unido al viaje.
             </p>
+            <Link to={`/trips/${tripId}/summary`} className="panel-link">
+              Ver disponibilidad del grupo →
+            </Link>
           </>
         )}
 

@@ -19,6 +19,7 @@ export interface TripWindow {
   title: string;
   windowStart: Date;
   windowEnd: Date;
+  status: TripStatus;
 }
 
 export interface Participant {

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { DayPicker } from "react-day-picker";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import "react-day-picker/dist/style.css";
-import { API_BASE_URL } from "../lib/api";
+import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
 import { stringToDate } from "../lib/date";
+import { CopyLinkField } from "./CopyLinkField";
 import type { RequestStatus, SummaryResponse } from "../types";
 
 type HeatLevel = "heat-0" | "heat-1" | "heat-2" | "heat-3" | "heat-4";
@@ -17,14 +18,6 @@ function heatLevel(count: number, totalParticipants: number): HeatLevel {
   if (ratio <= 0.75) return "heat-3";
   return "heat-4";
 }
-
-const HEAT_LEGEND: { level: HeatLevel; label: string }[] = [
-  { level: "heat-0", label: "0%" },
-  { level: "heat-1", label: "1-25%" },
-  { level: "heat-2", label: "26-50%" },
-  { level: "heat-3", label: "51-75%" },
-  { level: "heat-4", label: "76-100%" },
-];
 
 function firstAvailableDate(
   availabilityByDate: Record<string, number>,
@@ -99,15 +92,24 @@ export function SummaryTrip() {
 
   return (
     <div className="app-shell">
-      <div className="brand">
+      <Link to="/" className="brand">
         <span className="brand-mark">TS</span>
         TripSync
-      </div>
-      <div className="panel">
+      </Link>
+      <div className="panel panel--wide">
         <span className="panel-eyebrow">Resumen</span>
 
-        {error && <p role="alert">{error}</p>}
-        {status === "loading" && <p>Cargando resumen...</p>}
+        {error && (
+          <>
+            <p role="alert">{error}</p>
+            <Link to="/" className="panel-link">
+              ← Crear un nuevo viaje
+            </Link>
+          </>
+        )}
+        {status === "loading" && (
+          <p className="panel-loading">Cargando resumen...</p>
+        )}
 
         {status === "success" && summary && (
           <>
@@ -136,13 +138,18 @@ export function SummaryTrip() {
                   }}
                 />
               </div>
-              <div className="heat-legend">
-                {HEAT_LEGEND.map(({ level, label }) => (
-                  <span key={level} className="heat-legend-item">
-                    <span className={`heat-legend-swatch ${level}`} />
-                    {label}
-                  </span>
-                ))}
+              <div className="heat-scale">
+                <div className="heat-scale-bar">
+                  <span className="heat-scale-seg heat-0" />
+                  <span className="heat-scale-seg heat-1" />
+                  <span className="heat-scale-seg heat-2" />
+                  <span className="heat-scale-seg heat-3" />
+                  <span className="heat-scale-seg heat-4" />
+                </div>
+                <div className="heat-scale-labels">
+                  <span>Nadie disponible</span>
+                  <span>Todo el grupo disponible</span>
+                </div>
               </div>
             </div>
 
@@ -157,6 +164,14 @@ export function SummaryTrip() {
                 <p className="stat-value">{summary.budget}</p>
               )}
             </div>
+
+            <hr className="panel-divider" />
+
+            <CopyLinkField
+              id="share-link"
+              label="Invitar a más gente"
+              value={`${APP_BASE_URL}/trips/${tripId}`}
+            />
           </>
         )}
 
