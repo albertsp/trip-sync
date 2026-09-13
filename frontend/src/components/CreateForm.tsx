@@ -43,14 +43,18 @@ export function CreateForm() {
     }
   }
   return (
-    <div className="page">
-      <div className="ticket">
-        <span className="ticket-eyebrow">TripSync · Nuevo viaje</span>
+    <div className="app-shell">
+      <div className="brand">
+        <span className="brand-mark">TS</span>
+        TripSync
+      </div>
+      <div className="panel">
+        <span className="panel-eyebrow">Nuevo viaje</span>
 
         {(status === "idle" || status === "loading") && (
           <>
-            <h1 className="ticket-title">Planea tu próxima escapada</h1>
-            <p className="ticket-subtitle">
+            <h1 className="panel-title">Planea tu próxima escapada</h1>
+            <p className="panel-subtitle">
               Define un título y el rango de fechas posibles para que tus
               amigos indiquen su disponibilidad.
             </p>
@@ -101,8 +105,8 @@ export function CreateForm() {
 
         {status === "success" && (
           <>
-            <h1 className="ticket-title">¡Viaje emitido!</h1>
-            <p className="ticket-subtitle">
+            <h1 className="panel-title">¡Viaje creado!</h1>
+            <p className="panel-subtitle">
               Comparte este enlace con tus amigos para que se unan.
             </p>
             <div className="field">
@@ -118,10 +122,10 @@ export function CreateForm() {
           </>
         )}
 
-        <div className="ticket-divider" />
-        <div className="ticket-footer">
-          <span>TRIPSYNC · PLANEAD JUNTOS</span>
-          <strong>{trip ? trip.id.slice(0, 8).toUpperCase() : "SIN EMITIR"}</strong>
+        <hr className="panel-divider" />
+        <div className="meta-row">
+          <span>Código de viaje</span>
+          <strong>{trip ? trip.id.slice(0, 8).toUpperCase() : "SIN CREAR"}</strong>
         </div>
       </div>
     </div>

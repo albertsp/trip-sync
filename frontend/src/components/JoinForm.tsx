@@ -118,9 +118,13 @@ export function JoinForm() {
   }
 
   return (
-    <div className="page">
-      <div className="ticket">
-        <span className="ticket-eyebrow">TripSync · Unirse al viaje</span>
+    <div className="app-shell">
+      <div className="brand">
+        <span className="brand-mark">TS</span>
+        TripSync
+      </div>
+      <div className="panel">
+        <span className="panel-eyebrow">Unirse al viaje</span>
 
         {tripStatus === "loading" && <p>Cargando viaje...</p>}
         {tripStatus === "error" && (
@@ -131,8 +135,8 @@ export function JoinForm() {
           trip &&
           (status === "idle" || status === "loading") && (
             <>
-              <h1 className="ticket-title">¿Cuándo te viene bien?</h1>
-              <p className="ticket-subtitle">
+              <h1 className="panel-title">¿Cuándo te viene bien?</h1>
+              <p className="panel-subtitle">
                 Te han invitado a <strong>{trip.title}</strong>. Marca los días
                 en los que estás disponible e indica tu presupuesto.
               </p>
@@ -154,7 +158,7 @@ export function JoinForm() {
 
                 <div className="field">
                   <span className="field-label-text">Fechas disponibles</span>
-                  <div className="calendar-frame">
+                  <div className="calendar-card">
                     <DayPicker
                       required={true}
                       mode="multiple"
@@ -207,16 +211,16 @@ export function JoinForm() {
 
         {status === "success" && (
           <>
-            <h1 className="ticket-title">¡Estás dentro!</h1>
-            <p className="ticket-subtitle">
+            <h1 className="panel-title">¡Estás dentro!</h1>
+            <p className="panel-subtitle">
               Bienvenido {participant?.name}, te has unido al viaje.
             </p>
           </>
         )}
 
-        <div className="ticket-divider" />
-        <div className="ticket-footer">
-          <span>TRIPSYNC · PLANEAD JUNTOS</span>
+        <hr className="panel-divider" />
+        <div className="meta-row">
+          <span>Participante</span>
           <strong>
             {participant
               ? participant.id.slice(0, 8).toUpperCase()

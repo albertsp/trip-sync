@@ -98,24 +98,28 @@ export function SummaryTrip() {
   }, [tripId]);
 
   return (
-    <div className="page">
-      <div className="ticket">
-        <span className="ticket-eyebrow">TripSync · Resumen</span>
+    <div className="app-shell">
+      <div className="brand">
+        <span className="brand-mark">TS</span>
+        TripSync
+      </div>
+      <div className="panel">
+        <span className="panel-eyebrow">Resumen</span>
 
         {error && <p role="alert">{error}</p>}
         {status === "loading" && <p>Cargando resumen...</p>}
 
         {status === "success" && summary && (
           <>
-            <h1 className="ticket-title">Disponibilidad del grupo</h1>
-            <p className="ticket-subtitle">
+            <h1 className="panel-title">Disponibilidad del grupo</h1>
+            <p className="panel-subtitle">
               Así de bien encajan las fechas de todo el mundo. Cuanto más
               oscuro, más gente puede.
             </p>
 
             <div className="field">
               <span className="field-label-text">Mapa de disponibilidad</span>
-              <div className="calendar-frame">
+              <div className="calendar-card">
                 <DayPicker
                   disabled={() => true}
                   defaultMonth={firstAvailableDate(summary.availabilityByDate)}
@@ -156,11 +160,11 @@ export function SummaryTrip() {
           </>
         )}
 
-        <div className="ticket-divider" />
-        <div className="ticket-footer">
-          <span>TRIPSYNC · PLANEAD JUNTOS</span>
+        <hr className="panel-divider" />
+        <div className="meta-row">
+          <span>Total</span>
           <strong>
-            {summary ? `${summary.totalParticipants} PARTICIPANTES` : "—"}
+            {summary ? `${summary.totalParticipants} participantes` : "—"}
           </strong>
         </div>
       </div>
