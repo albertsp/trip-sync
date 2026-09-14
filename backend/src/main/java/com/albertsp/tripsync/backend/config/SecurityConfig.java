@@ -13,7 +13,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http){
-        http.authorizeHttpRequests(auth -> auth
+        http.cors(Customizer.withDefaults())
+                .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,"/trips").authenticated()
                         .anyRequest().permitAll())
                 .oauth2Login((oauth2) ->oauth2.defaultSuccessUrl("http://localhost:5173/",true))
