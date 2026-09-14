@@ -3,9 +3,10 @@ package com.albertsp.tripsync.backend.controllers;
 import com.albertsp.tripsync.backend.dtos.CreateTripRequest;
 import com.albertsp.tripsync.backend.dtos.TripResponse;
 import com.albertsp.tripsync.backend.domain.Trip;
-import com.albertsp.tripsync.backend.repositories.TripRepository;
 import com.albertsp.tripsync.backend.service.TripService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -15,25 +16,17 @@ import java.util.UUID;
 @RestController
 public class TripController {
 
-    private final TripRepository tripRepository;
     private final TripService tripService;
 
-    public TripController(TripRepository tripRepository, TripService tripService) {
-        this.tripRepository = tripRepository;
+    public TripController(TripService tripService) {
         this.tripService = tripService;
     }
 
 
     @PostMapping("/trips")
-    public ResponseEntity<TripResponse> createTrip(@RequestBody CreateTripRequest request) {
+    public ResponseEntity<TripResponse> createTrip(@RequestBody CreateTripRequest request, @AuthenticationPrincipal OAuth2User principal) {
 
-        Trip trip = new Trip();
-
-        trip.setTitle(request.title());
-        trip.setWindowStart(request.windowStart());
-        trip.setWindowEnd(request.windowEnd());
-
-        Trip saved = tripRepository.save(trip);
+        Trip saved = tripService.createTrip(request, principal);
 
         TripResponse response = new TripResponse(saved.getId(), saved.getTitle(), saved.getWindowStart(), saved.getWindowEnd(), saved.getStatus(), saved.getCreatedAt());
 

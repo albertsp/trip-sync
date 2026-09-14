@@ -25,6 +25,12 @@ public class Trip {
     @Enumerated(EnumType.STRING)
     private TripStatus status = TripStatus.OPEN;
 
+    @ManyToOne
+    @JoinColumn(name = "creator_id")
+    private User creator;
+
+
+
     public UUID getId() {
         return id;
     }
@@ -71,5 +77,13 @@ public class Trip {
 
     public void setStatus(TripStatus status) {
         this.status = status;
+    }
+
+    public User getCreator() {
+        return creator;
+    }
+
+    public void setCreator(User creator) {
+        this.creator = creator;
     }
 }
