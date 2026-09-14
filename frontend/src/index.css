@@ -403,7 +403,8 @@ button {
   cursor: pointer;
 }
 
-button[type="submit"] {
+button[type="submit"],
+.btn-primary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -416,6 +417,7 @@ button[type="submit"] {
   font-family: var(--font-body);
   font-size: 0.9375rem;
   font-weight: 600;
+  text-decoration: none;
   border: none;
   border-radius: var(--radius-md);
   box-shadow: 0 1px 2px rgba(22, 84, 63, 0.2);
@@ -425,22 +427,26 @@ button[type="submit"] {
     box-shadow 0.15s ease;
 }
 
-button[type="submit"]::after {
+button[type="submit"]::after,
+.btn-primary::after {
   content: "\2192";
   transition: transform 0.15s ease;
 }
 
-button[type="submit"]:hover:not(:disabled) {
+button[type="submit"]:hover:not(:disabled),
+.btn-primary:hover {
   background-color: var(--accent-dark);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(22, 84, 63, 0.3);
 }
 
-button[type="submit"]:hover:not(:disabled)::after {
+button[type="submit"]:hover:not(:disabled)::after,
+.btn-primary:hover::after {
   transform: translateX(2px);
 }
 
-button[type="submit"]:active:not(:disabled) {
+button[type="submit"]:active:not(:disabled),
+.btn-primary:active {
   transform: translateY(0);
 }
 

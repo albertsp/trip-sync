@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   API_BASE_URL,
   APP_BASE_URL,
@@ -240,6 +241,10 @@ export function Landing() {
                 label="Enlace de invitación"
                 value={`${APP_BASE_URL}/trips/${trip.id}`}
               />
+
+              <Link to={`/trips/${trip.id}`} className="btn-primary">
+                Ir al viaje
+              </Link>
             </>
           )}
         </div>
