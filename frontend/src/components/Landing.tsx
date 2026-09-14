@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
+import {
+  API_BASE_URL,
+  APP_BASE_URL,
+  getCookie,
+  initializeCsrf,
+} from "../lib/api";
 import { AuthModal } from "./AuthModal";
 import { CopyLinkField } from "./CopyLinkField";
 import type { AuthUser, CreateTripForm, RequestStatus, Trip } from "../types";
@@ -34,10 +39,20 @@ export function Landing() {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/me`, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: AuthUser | null) => setUser(data))
-      .catch(() => setUser(null));
+    async function initializePage() {
+      try {
+        await initializeCsrf();
+      } catch (error) {
+        console.error("Could not initialize CSRF: ", error);
+      }
+
+      fetch(`${API_BASE_URL}/api/me`, { credentials: "include" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: AuthUser | null) => setUser(data))
+        .catch(() => setUser(null));
+    }
+
+    initializePage();
   }, []);
 
   function openAuth() {
@@ -68,11 +83,13 @@ export function Landing() {
     setStatus("loading");
 
     try {
+      const csrfToken = getCookie("XSRF-TOKEN");
       const response = await fetch(`${API_BASE_URL}/trips`, {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}),
         },
         body: JSON.stringify(form),
       });
@@ -111,13 +128,15 @@ export function Landing() {
 
       <main className="hero">
         <div className="hero-copy">
-          <span className="panel-eyebrow">Planificación de viajes en grupo</span>
+          <span className="panel-eyebrow">
+            Planificación de viajes en grupo
+          </span>
           <h1 className="hero-title">
             Encuentra las fechas en las que todos podéis viajar
           </h1>
           <p className="hero-lede">
-            TripSync compara la disponibilidad y el presupuesto de todo el
-            grupo para que decidir el viaje deje de ser un caos de mensajes.
+            TripSync compara la disponibilidad y el presupuesto de todo el grupo
+            para que decidir el viaje deje de ser un caos de mensajes.
           </p>
           <ul className="hero-points">
             {HERO_POINTS.map((point) => (
