@@ -50,3 +50,8 @@ export interface JoinTripForm {
 
 /** Status of the trip-window fetch that gates JoinForm's calendar. */
 export type TripFetchStatus = "loading" | "ready" | "error";
+
+export interface AuthUser {
+  name: string;
+  email: string;
+}

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
 import { AuthModal } from "./AuthModal";
 import { CopyLinkField } from "./CopyLinkField";
-import type { CreateTripForm, RequestStatus, Trip } from "../types";
+import type { AuthUser, CreateTripForm, RequestStatus, Trip } from "../types";
 
 function validate(form: CreateTripForm): string | null {
   if (!form.title.trim()) return "Ponle un título al viaje";
@@ -31,17 +31,23 @@ export function Landing() {
   const [trip, setTrip] = useState<Trip | null>(null);
 
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  function openAuth(mode: "login" | "signup") {
-    setAuthMode(mode);
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/me`, { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: AuthUser | null) => setUser(data))
+      .catch(() => setUser(null));
+  }, []);
+
+  function openAuth() {
     setAuthOpen(true);
   }
 
   function handleGateKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      openAuth("login");
+      openAuth();
     }
   }
 
@@ -64,6 +70,7 @@ export function Landing() {
     try {
       const response = await fetch(`${API_BASE_URL}/trips`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -92,20 +99,13 @@ export function Landing() {
           TripSync
         </div>
         <div className="header-actions">
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => openAuth("login")}
-          >
-            Iniciar sesión
-          </button>
-          <button
-            type="button"
-            className="btn-solid-sm"
-            onClick={() => openAuth("signup")}
-          >
-            Registrarse
-          </button>
+          {user ? (
+            <span className="user-greeting">Hola, {user.name}</span>
+          ) : (
+            <button type="button" className="btn-solid-sm" onClick={openAuth}>
+              Entrar
+            </button>
+          )}
         </div>
       </header>
 
@@ -137,64 +137,75 @@ export function Landing() {
                 amigos indiquen su disponibilidad.
               </p>
 
-              <span className="gate-badge">
-                🔒 Inicia sesión para crear el viaje
-              </span>
+              {!user && (
+                <span className="gate-badge">
+                  🔒 Inicia sesión para crear el viaje
+                </span>
+              )}
 
-              <div
-                className="form-gate"
-                role="button"
-                tabIndex={0}
-                aria-haspopup="dialog"
-                aria-label="Inicia sesión o regístrate para crear el viaje"
-                onClick={() => openAuth("login")}
-                onKeyDown={handleGateKeyDown}
-              >
-                <form onSubmit={handleSubmit} noValidate inert>
+              {(() => {
+                const tripForm = (
+                  <form onSubmit={handleSubmit} noValidate inert={!user}>
+                    {error && <p role="alert">{error}</p>}
 
-                  {error && <p role="alert">{error}</p>}
-
-                  <div className="field">
-                    <label htmlFor="title">Título del viaje</label>
-                    <input
-                      id="title"
-                      type="text"
-                      name="title"
-                      placeholder="Escapada de otoño"
-                      value={form.title}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="field-row">
                     <div className="field">
-                      <label htmlFor="windowStart">Desde</label>
+                      <label htmlFor="title">Título del viaje</label>
                       <input
-                        id="windowStart"
-                        type="date"
-                        name="windowStart"
-                        value={form.windowStart}
+                        id="title"
+                        type="text"
+                        name="title"
+                        placeholder="Escapada de otoño"
+                        value={form.title}
                         onChange={handleChange}
                       />
                     </div>
 
-                    <div className="field">
-                      <label htmlFor="windowEnd">Hasta</label>
-                      <input
-                        id="windowEnd"
-                        type="date"
-                        name="windowEnd"
-                        value={form.windowEnd}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
+                    <div className="field-row">
+                      <div className="field">
+                        <label htmlFor="windowStart">Desde</label>
+                        <input
+                          id="windowStart"
+                          type="date"
+                          name="windowStart"
+                          value={form.windowStart}
+                          onChange={handleChange}
+                        />
+                      </div>
 
-                  <button type="submit" disabled={status === "loading"}>
-                    Crear viaje
-                  </button>
-                </form>
-              </div>
+                      <div className="field">
+                        <label htmlFor="windowEnd">Hasta</label>
+                        <input
+                          id="windowEnd"
+                          type="date"
+                          name="windowEnd"
+                          value={form.windowEnd}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" disabled={status === "loading"}>
+                      Crear viaje
+                    </button>
+                  </form>
+                );
+
+                if (user) return tripForm;
+
+                return (
+                  <div
+                    className="form-gate"
+                    role="button"
+                    tabIndex={0}
+                    aria-haspopup="dialog"
+                    aria-label="Inicia sesión con Google para crear el viaje"
+                    onClick={openAuth}
+                    onKeyDown={handleGateKeyDown}
+                  >
+                    {tripForm}
+                  </div>
+                );
+              })()}
             </>
           )}
 
@@ -215,11 +226,7 @@ export function Landing() {
         </div>
       </main>
 
-      <AuthModal
-        open={authOpen}
-        initialMode={authMode}
-        onClose={() => setAuthOpen(false)}
-      />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   );
 }
