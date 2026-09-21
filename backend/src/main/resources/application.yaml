@@ -29,6 +29,7 @@ app:
     secure: ${COOKIE_SECURE:false}
 
 server:
+  forward-headers-strategy: framework
   servlet:
     session:
       cookie:
