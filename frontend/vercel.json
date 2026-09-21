@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/backend/:path*", "destination": "https://trip-sync-api.fly.dev/:path*" }
+  ]
+}
