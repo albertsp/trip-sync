@@ -38,6 +38,7 @@ export function Landing() {
 
   const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   useEffect(() => {
     async function initializePage() {
@@ -50,13 +51,15 @@ export function Landing() {
       fetch(`${API_BASE_URL}/api/me`, { credentials: "include" })
         .then((response) => (response.ok ? response.json() : null))
         .then((data: AuthUser | null) => setUser(data))
-        .catch(() => setUser(null));
+        .catch(() => setUser(null))
+        .finally(() => setIsLoadingUser(false));
     }
 
     initializePage();
   }, []);
 
   function openAuth() {
+    if (isLoadingUser) return;
     setAuthOpen(true);
   }
 
@@ -165,7 +168,11 @@ export function Landing() {
 
               {(() => {
                 const tripForm = (
-                  <form onSubmit={handleSubmit} noValidate inert={!user}>
+                  <form
+                    onSubmit={handleSubmit}
+                    noValidate
+                    inert={!user || isLoadingUser}
+                  >
                     {error && <p role="alert">{error}</p>}
 
                     <div className="field">
