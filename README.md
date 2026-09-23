@@ -82,6 +82,8 @@ Trip creation needed to require Google sign-in, but adding a full login screen w
 - Google OAuth2 credentials ([Google Cloud Console](https://console.cloud.google.com/apis/credentials)) with:
   - Authorized origin: `http://localhost:5173`
   - Redirect URI: `http://localhost:8080/login/oauth2/code/google`
+  - Production origin: `https://trip-sync-app-theta.vercel.app`
+  - Production redirect URI: `https://trip-sync-app-theta.vercel.app/backend/login/oauth2/code/google`
 
 ### 1. Database
 
@@ -127,6 +129,23 @@ The app is available at `http://localhost:5173`.
 | GET | `/trips/{id}/summary` | Returns the availability heatmap and group budget | Public |
 | GET | `/api/me` | Returns the authenticated user (or 401) | — |
 
+## Deployment
+
+**Frontend → Vercel** (`trip-sync-app`, Root Directory `frontend/`, branch `main`). Build env vars:
+
+- `VITE_API_BASE_URL=/backend` — all API calls go through the same-origin proxy declared in `frontend/vercel.json`
+- `VITE_APP_BASE_URL=https://trip-sync-app-theta.vercel.app` — base for share links
+
+**Backend → Fly.io** (`trip-sync-api`, config in `backend/fly.toml`). Secrets via `fly secrets set`:
+
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
+- `FRONTEND_URL=https://trip-sync-app-theta.vercel.app` — post-login redirect
+- `CORS_ALLOWED_ORIGINS=https://trip-sync-app-theta.vercel.app`
+- `OAUTH2_REDIRECT_URI=https://trip-sync-app-theta.vercel.app/backend/login/oauth2/code/google` — must be registered verbatim in Google Cloud Console and matches the `/backend/*` proxy path
+- `COOKIE_SAME_SITE=None`, `COOKIE_SECURE=true`
+
+The browser only ever talks to the Vercel domain (`/backend/*` is rewritten to Fly), so the session and CSRF cookies are first-party.
+
 ## Project status
 
 This is a functional MVP built as a portfolio project. Planned next steps:
@@ -134,4 +153,3 @@ This is a functional MVP built as a portfolio project. Planned next steps:
 - Closing a trip (the data model already supports the `CLOSED` status; the endpoint is still missing).
 - Editing already-submitted availability via each participant's edit token.
 - Automated backend and frontend tests.
-- Deployment with environment-configurable URLs (currently points to `localhost` in development).
