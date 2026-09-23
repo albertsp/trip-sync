@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .csrf((csrf) -> csrf
                         .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/trips/*/participants"));
+                        .ignoringRequestMatchers("/trips/*/participants", "/test/**"));
 
         return http.build();
     }
