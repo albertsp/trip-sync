@@ -36,4 +36,16 @@ public class UserService {
 
         return existingUser.get();
     }
+
+    public User findOrCreateTestUser() {
+        String testGoogleId = "test-seed-user";
+        return userRepository.findByGoogleId(testGoogleId)
+                .orElseGet(()->{
+                    User testUser = new User();
+                    testUser.setGoogleId(testGoogleId);
+                    testUser.setName("QA Test User");
+                    testUser.setEmail("qa-test@tripsync.local");
+                    return userRepository.save(testUser);
+                });
+    }
 }
