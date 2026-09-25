@@ -6,8 +6,10 @@ import {
   initializeCsrf,
 } from "../lib/api";
 import { AuthModal } from "./AuthModal";
+import { Barcode } from "./Barcode";
 import { BrandMark } from "./BrandMark";
 import { CopyLinkField } from "./CopyLinkField";
+import { Swap } from "./motion/Swap";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, ButtonLink } from "./ui/Button";
 import { Chip } from "./ui/Chip";
@@ -160,114 +162,116 @@ export function Landing() {
           <div className="ticket-perf" aria-hidden="true" />
 
           <div className="ticket-body">
-            {(status === "idle" || status === "loading") && (
-              <>
-                <h2 className="panel-title">Planea tu próxima escapada</h2>
-                <p className="panel-subtitle">
-                  Define un título y el rango de fechas posibles para que tus
-                  amigos indiquen su disponibilidad.
-                </p>
+            <Swap stateKey={status === "success" ? "done" : "form"}>
+              {status === "success" && trip ? (
+                <>
+                  <h2 className="panel-title">¡Viaje creado!</h2>
+                  <p className="panel-subtitle">
+                    Comparte este enlace con tus amigos para que se unan.
+                  </p>
 
-                {!user && (
-                  <span className="gate-badge">
-                    🔒 Inicia sesión para crear el viaje
-                  </span>
-                )}
+                  <CopyLinkField
+                    id="share-link"
+                    label="Enlace de invitación"
+                    value={`${APP_BASE_URL}/trips/${trip.id}`}
+                  />
 
-                {(() => {
-                  const tripForm = (
-                    <form
-                      onSubmit={handleSubmit}
-                      noValidate
-                      inert={!user || isLoadingUser}
-                    >
-                      {error && <p role="alert">{error}</p>}
+                  <Barcode seed={trip.id} />
 
-                      <div className="field">
-                        <label htmlFor="title">Título del viaje</label>
-                        <input
-                          id="title"
-                          type="text"
-                          name="title"
-                          placeholder="Escapada de otoño"
-                          value={form.title}
-                          onChange={handleChange}
-                        />
-                      </div>
+                  <ButtonLink to={`/trips/${trip.id}`} block arrow>
+                    Ir al viaje
+                  </ButtonLink>
+                </>
+              ) : (
+                <>
+                  <h2 className="panel-title">Planea tu próxima escapada</h2>
+                  <p className="panel-subtitle">
+                    Define un título y el rango de fechas posibles para que tus
+                    amigos indiquen su disponibilidad.
+                  </p>
 
-                      <div className="field-row">
-                        <div className="field">
-                          <label htmlFor="windowStart">Desde</label>
-                          <input
-                            id="windowStart"
-                            type="date"
-                            name="windowStart"
-                            value={form.windowStart}
-                            onChange={handleChange}
-                          />
-                        </div>
+                  {!user && (
+                    <span className="gate-badge">
+                      🔒 Inicia sesión para crear el viaje
+                    </span>
+                  )}
 
-                        <div className="field">
-                          <label htmlFor="windowEnd">Hasta</label>
-                          <input
-                            id="windowEnd"
-                            type="date"
-                            name="windowEnd"
-                            value={form.windowEnd}
-                            onChange={handleChange}
-                          />
-                        </div>
-                      </div>
-
-                      <Button
-                        type="submit"
-                        block
-                        arrow
-                        className="mt-5"
-                        disabled={status === "loading"}
+                  {(() => {
+                    const tripForm = (
+                      <form
+                        onSubmit={handleSubmit}
+                        noValidate
+                        inert={!user || isLoadingUser}
                       >
-                        Crear viaje
-                      </Button>
-                    </form>
-                  );
+                        {error && <p role="alert">{error}</p>}
 
-                  if (user) return tripForm;
+                        <div className="field">
+                          <label htmlFor="title">Título del viaje</label>
+                          <input
+                            id="title"
+                            type="text"
+                            name="title"
+                            placeholder="Escapada de otoño"
+                            value={form.title}
+                            onChange={handleChange}
+                          />
+                        </div>
 
-                  return (
-                    <div
-                      className="form-gate"
-                      role="button"
-                      tabIndex={0}
-                      aria-haspopup="dialog"
-                      aria-label="Inicia sesión con Google para crear el viaje"
-                      onClick={openAuth}
-                      onKeyDown={handleGateKeyDown}
-                    >
-                      {tripForm}
-                    </div>
-                  );
-                })()}
-              </>
-            )}
+                        <div className="field-row">
+                          <div className="field">
+                            <label htmlFor="windowStart">Desde</label>
+                            <input
+                              id="windowStart"
+                              type="date"
+                              name="windowStart"
+                              value={form.windowStart}
+                              onChange={handleChange}
+                            />
+                          </div>
 
-            {status === "success" && trip && (
-              <>
-                <h2 className="panel-title">¡Viaje creado!</h2>
-                <p className="panel-subtitle">
-                  Comparte este enlace con tus amigos para que se unan.
-                </p>
+                          <div className="field">
+                            <label htmlFor="windowEnd">Hasta</label>
+                            <input
+                              id="windowEnd"
+                              type="date"
+                              name="windowEnd"
+                              value={form.windowEnd}
+                              onChange={handleChange}
+                            />
+                          </div>
+                        </div>
 
-                <CopyLinkField
-                  id="share-link"
-                  label="Enlace de invitación"
-                  value={`${APP_BASE_URL}/trips/${trip.id}`}
-                />
+                        <Button
+                          type="submit"
+                          block
+                          arrow
+                          className="mt-5"
+                          disabled={status === "loading"}
+                        >
+                          Crear viaje
+                        </Button>
+                      </form>
+                    );
 
-                <ButtonLink to={`/trips/${trip.id}`} block arrow>
-                  Ir al viaje
-                </ButtonLink>
-              </>
-            )}
+                    if (user) return tripForm;
+
+                    return (
+                      <div
+                        className="form-gate"
+                        role="button"
+                        tabIndex={0}
+                        aria-haspopup="dialog"
+                        aria-label="Inicia sesión con Google para crear el viaje"
+                        onClick={openAuth}
+                        onKeyDown={handleGateKeyDown}
+                      >
+                        {tripForm}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </Swap>
           </div>
         </div>
       </main>

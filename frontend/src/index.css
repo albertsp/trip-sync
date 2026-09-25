@@ -301,7 +301,7 @@ body::before {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 560px;
+  max-width: 480px;
 }
 
 .brand {
@@ -525,7 +525,7 @@ body::before {
   margin-bottom: 20px;
 }
 
-.field label,
+.field > label,
 .field-label-text {
   font-family: var(--font-mono-stack);
   font-size: 0.72rem;
@@ -927,11 +927,6 @@ select {
   color: var(--ink-3);
 }
 
-/* Stat block: a single labeled figure (e.g. suggested budget) */
-.stat {
-  margin-bottom: 22px;
-}
-
 .stat-value {
   margin: 8px 0 0;
   font-weight: 800;
@@ -940,14 +935,6 @@ select {
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-}
-
-.stat-value.stat-empty {
-  font-stretch: 100%;
-  font-weight: 400;
-  font-size: 1rem;
-  line-height: 1.55;
-  color: var(--ink-2);
 }
 
 /* ------------------------------------------------------------------ *
@@ -1204,4 +1191,191 @@ select {
   .ticket {
     transform: none;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Phase 3: segmented control, stamp, barcode, summary layout
+ * ------------------------------------------------------------------ */
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-md);
+  background-color: var(--bg);
+}
+
+.segmented label {
+  position: relative;
+}
+
+.segmented input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segmented span {
+  display: block;
+  padding: 8px 18px;
+  border-radius: 9px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+  transition:
+    background-color 0.2s var(--ease-out-expo),
+    color 0.2s ease;
+}
+
+.segmented label:hover input:not(:checked) + span {
+  color: var(--ink);
+}
+
+.segmented input:checked + span {
+  background-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.segmented input:focus-visible + span {
+  outline: 3px solid var(--sun);
+  outline-offset: 2px;
+}
+
+.field-row .field:has(.segmented) {
+  flex: 0 0 auto;
+}
+
+.field-row {
+  align-items: flex-end;
+}
+
+/* Rubber stamp shown when someone joins a trip */
+.stamp {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  width: 200px;
+  aspect-ratio: 1;
+  margin: 4px auto 28px;
+  border: 5px double var(--heat-4);
+  border-radius: 50%;
+  color: var(--heat-4);
+  font-weight: 800;
+  font-stretch: 75%;
+  line-height: 0.95;
+  text-transform: uppercase;
+  transform: rotate(-12deg);
+  animation: stamp-in 0.55s 0.1s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.stamp b {
+  font-size: 2.2rem;
+}
+
+.stamp small {
+  font-family: var(--font-mono-stack);
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-30deg) scale(2.6);
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-12deg) scale(1);
+  }
+}
+
+.barcode {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 46px;
+  margin: 4px 0 20px;
+  opacity: 0.85;
+}
+
+.barcode i {
+  background-color: var(--ink);
+  border-radius: 1px;
+}
+
+/* Summary: the answer (best window) first on phones, calendar beside it on desktop */
+.shell-header--wide,
+.panel--summary {
+  max-width: 980px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "best" "calendar" "side";
+  align-items: start;
+  gap: 24px;
+}
+
+.summary-best {
+  grid-area: best;
+}
+
+.summary-calendar {
+  grid-area: calendar;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.summary-side {
+  grid-area: side;
+  display: grid;
+  gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .summary-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-areas:
+      "calendar best"
+      "calendar side";
+    gap: 24px 40px;
+  }
+}
+
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background-color: var(--screen);
+}
+
+.stat-tile .stat-value {
+  margin: 0;
+}
+
+.stat-tile small {
+  color: var(--ink-3);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }

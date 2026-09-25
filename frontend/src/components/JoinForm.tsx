@@ -4,7 +4,10 @@ import { API_BASE_URL } from "../lib/api";
 import { dateToString, stringToDate } from "../lib/date";
 import { ShellHeader } from "./ShellHeader";
 import { Calendar } from "./calendar/Calendar";
-import { Button } from "./ui/Button";
+import { Stamp } from "./Stamp";
+import { Swap } from "./motion/Swap";
+import { Button, ButtonLink } from "./ui/Button";
+import { CurrencyToggle } from "./ui/CurrencyToggle";
 import type {
   JoinTripForm,
   Participant,
@@ -80,9 +83,7 @@ export function JoinForm() {
     };
   }, [tripId]);
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setJoin({ ...join, [e.target.name]: e.target.value });
   }
 
@@ -165,114 +166,111 @@ export function JoinForm() {
           </>
         )}
 
-        {tripStatus === "ready" &&
-          trip &&
-          !isClosed &&
-          (status === "idle" || status === "loading") && (
-            <>
-              <h1 className="panel-title">¿Cuándo te viene bien?</h1>
-              <p className="panel-subtitle">
-                Te han invitado a <strong>{trip.title}</strong>. Marca los días
-                en los que estás disponible e indica tu presupuesto.
-              </p>
+        {tripStatus === "ready" && trip && !isClosed && (
+          <Swap stateKey={status === "success" ? "success" : "form"}>
+            {status === "success" ? (
+              <>
+                <Stamp
+                  code={(participant?.id ?? "").slice(0, 8).toUpperCase()}
+                />
+                <h1 className="panel-title">¡Estás dentro!</h1>
+                <p className="panel-subtitle">
+                  Bienvenido {participant?.name}, ya cuentas en{" "}
+                  <strong>{trip.title}</strong>. Guardamos un enlace de edición
+                  en este navegador por si quieres cambiar tus días.
+                </p>
+                <ButtonLink to={`/trips/${tripId}/summary`} block arrow>
+                  Ver disponibilidad del grupo
+                </ButtonLink>
+              </>
+            ) : (
+              <>
+                <h1 className="panel-title">¿Cuándo te viene bien?</h1>
+                <p className="panel-subtitle">
+                  Te han invitado a <strong>{trip.title}</strong>. Marca los
+                  días en los que estás disponible e indica tu presupuesto.
+                </p>
 
-              <form onSubmit={handleSubmit} noValidate>
-                {error && <p role="alert">{error}</p>}
+                <form onSubmit={handleSubmit} noValidate>
+                  {error && <p role="alert">{error}</p>}
 
-                <div className="field">
-                  <label htmlFor="name">Tu nombre</label>
-                  <input
-                    id="name"
-                    type="text"
-                    name="name"
-                    placeholder="Ana García"
-                    value={join.name}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="field">
-                  <span className="field-label-text">Fechas disponibles</span>
-                  <div className="calendar-card">
-                    <Calendar
-                      mode="paint"
-                      windowStart={trip.windowStart}
-                      windowEnd={trip.windowEnd}
-                      selected={availableDates}
-                      onChange={setAvailableDates}
-                    />
-                  </div>
-                  <div className="cal-foot">
-                    <span className="cal-counter" aria-live="polite">
-                      <strong>{availableDates.length}</strong>{" "}
-                      {availableDates.length === 1
-                        ? "día marcado"
-                        : "días marcados"}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={availableDates.length === 0}
-                      onClick={() => setAvailableDates([])}
-                    >
-                      Borrar selección
-                    </Button>
-                  </div>
-                  <p className="field-hint">
-                    Haz clic o arrastra sobre varios días para marcarlos.
-                  </p>
-                </div>
-
-                <div className="field-row">
                   <div className="field">
-                    <label htmlFor="budgetAmount">Presupuesto</label>
+                    <label htmlFor="name">Tu nombre</label>
                     <input
-                      id="budgetAmount"
-                      type="number"
-                      name="budgetAmount"
-                      placeholder="300"
-                      value={join.budgetAmount}
+                      id="name"
+                      type="text"
+                      name="name"
+                      placeholder="Ana García"
+                      value={join.name}
                       onChange={handleChange}
                     />
                   </div>
 
                   <div className="field">
-                    <label htmlFor="budgetCurrency">Divisa</label>
-                    <select
-                      id="budgetCurrency"
+                    <span className="field-label-text">Fechas disponibles</span>
+                    <div className="calendar-card">
+                      <Calendar
+                        mode="paint"
+                        windowStart={trip.windowStart}
+                        windowEnd={trip.windowEnd}
+                        selected={availableDates}
+                        onChange={setAvailableDates}
+                      />
+                    </div>
+                    <div className="cal-foot">
+                      <span className="cal-counter" aria-live="polite">
+                        <strong>{availableDates.length}</strong>{" "}
+                        {availableDates.length === 1
+                          ? "día marcado"
+                          : "días marcados"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={availableDates.length === 0}
+                        onClick={() => setAvailableDates([])}
+                      >
+                        Borrar selección
+                      </Button>
+                    </div>
+                    <p className="field-hint">
+                      Haz clic o arrastra sobre varios días para marcarlos.
+                    </p>
+                  </div>
+
+                  <div className="field-row">
+                    <div className="field">
+                      <label htmlFor="budgetAmount">Presupuesto</label>
+                      <input
+                        id="budgetAmount"
+                        type="number"
+                        name="budgetAmount"
+                        placeholder="300"
+                        value={join.budgetAmount}
+                        onChange={handleChange}
+                      />
+                    </div>
+
+                    <CurrencyToggle
                       name="budgetCurrency"
                       value={join.budgetCurrency}
                       onChange={handleChange}
-                    >
-                      <option value="EUR">EUR</option>
-                      <option value="USD">USD</option>
-                    </select>
+                    />
                   </div>
-                </div>
 
-                <Button
-                  type="submit"
-                  block
-                  arrow
-                  className="mt-2"
-                  disabled={status === "loading"}
-                >
-                  Unirse al viaje
-                </Button>
-              </form>
-            </>
-          )}
-
-        {status === "success" && (
-          <>
-            <h1 className="panel-title">¡Estás dentro!</h1>
-            <p className="panel-subtitle">
-              Bienvenido {participant?.name}, te has unido al viaje.
-            </p>
-            <Link to={`/trips/${tripId}/summary`} className="panel-link">
-              Ver disponibilidad del grupo →
-            </Link>
-          </>
+                  <Button
+                    type="submit"
+                    block
+                    arrow
+                    className="mt-6"
+                    disabled={status === "loading"}
+                  >
+                    Unirse al viaje
+                  </Button>
+                </form>
+              </>
+            )}
+          </Swap>
         )}
 
         <hr className="panel-divider" />

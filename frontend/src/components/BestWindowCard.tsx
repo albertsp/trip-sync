@@ -16,7 +16,7 @@ export function BestWindowCard({
   return (
     <section
       aria-labelledby="best-window-title"
-      className="relative mb-8 overflow-hidden rounded-3xl bg-panel p-6 text-on-panel after:absolute after:-top-14 after:-right-14 after:size-40 after:rounded-full after:bg-sun after:content-['']"
+      className="relative overflow-hidden rounded-3xl bg-panel p-6 text-on-panel after:absolute after:-top-14 after:-right-14 after:size-40 after:rounded-full after:bg-sun after:content-['']"
     >
       <span className="mono-label relative z-10 opacity-70">Mejor ventana</span>
 
