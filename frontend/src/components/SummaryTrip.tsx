@@ -1,49 +1,36 @@
-import { useEffect, useState } from "react";
-import { DayPicker } from "react-day-picker";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import "react-day-picker/dist/style.css";
 import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
+import { bestWindow, spanOfCounts } from "../lib/availability";
 import { stringToDate } from "../lib/date";
+import { BestWindowCard } from "./BestWindowCard";
+import { Calendar } from "./calendar/Calendar";
 import { CopyLinkField } from "./CopyLinkField";
-import type { RequestStatus, SummaryResponse } from "../types";
+import { Stagger, StaggerItem } from "./motion/Stagger";
+import { CountUp } from "./ui/CountUp";
+import { ShellHeader } from "./ShellHeader";
+import type {
+  RequestStatus,
+  SummaryResponse,
+  Trip,
+  TripWindow,
+} from "../types";
 
-type HeatLevel = "heat-0" | "heat-1" | "heat-2" | "heat-3" | "heat-4";
-
-function heatLevel(count: number, totalParticipants: number): HeatLevel {
-  if (totalParticipants === 0) return "heat-0";
-  const ratio = count / totalParticipants;
-  if (ratio === 0) return "heat-0";
-  if (ratio <= 0.25) return "heat-1";
-  if (ratio <= 0.5) return "heat-2";
-  if (ratio <= 0.75) return "heat-3";
-  return "heat-4";
-}
-
-function firstAvailableDate(
-  availabilityByDate: Record<string, number>,
-): Date | undefined {
-  const dates = Object.keys(availabilityByDate).sort();
-  return dates.length > 0 ? stringToDate(dates[0]) : undefined;
-}
-
-function buildHeatModifiers(
-  availabilityByDate: Record<string, number>,
-  totalParticipants: number,
-): Record<HeatLevel, Date[]> {
-  const modifiers: Record<HeatLevel, Date[]> = {
-    "heat-0": [],
-    "heat-1": [],
-    "heat-2": [],
-    "heat-3": [],
-    "heat-4": [],
-  };
-
-  for (const [dateStr, count] of Object.entries(availabilityByDate)) {
-    const level = heatLevel(count, totalParticipants);
-    modifiers[level].push(stringToDate(dateStr));
+/** The trip only refines the view (title and window), so a failure here isn't fatal. */
+async function fetchTripWindow(tripId: string): Promise<TripWindow | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trips/${tripId}`);
+    if (!response.ok) return null;
+    const data: Trip = await response.json();
+    return {
+      title: data.title,
+      windowStart: stringToDate(data.windowStart),
+      windowEnd: stringToDate(data.windowEnd),
+      status: data.status,
+    };
+  } catch {
+    return null;
   }
-
-  return modifiers;
 }
 
 export function SummaryTrip() {
@@ -51,6 +38,7 @@ export function SummaryTrip() {
 
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [trip, setTrip] = useState<TripWindow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,9 +49,10 @@ export function SummaryTrip() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/trips/${tripId}/summary`,
-        );
+        const [response, tripWindow] = await Promise.all([
+          fetch(`${API_BASE_URL}/trips/${tripId}/summary`),
+          fetchTripWindow(tripId ?? ""),
+        ]);
 
         if (!response.ok) {
           throw new Error(`Server Error: ${response.status}`);
@@ -74,6 +63,7 @@ export function SummaryTrip() {
         if (cancelled) return;
 
         setSummary(data);
+        setTrip(tripWindow);
         setStatus("success");
       } catch (err) {
         if (cancelled) return;
@@ -90,13 +80,25 @@ export function SummaryTrip() {
     };
   }, [tripId]);
 
+  const range = useMemo(() => {
+    if (!summary) return null;
+    return trip
+      ? { start: trip.windowStart, end: trip.windowEnd }
+      : spanOfCounts(summary.availabilityByDate);
+  }, [summary, trip]);
+
+  const best = useMemo(
+    () =>
+      summary && range
+        ? bestWindow(summary.availabilityByDate, range.start, range.end)
+        : null,
+    [summary, range],
+  );
+
   return (
     <div className="app-shell">
-      <Link to="/" className="brand">
-        <span className="brand-mark">TS</span>
-        TripSync
-      </Link>
-      <div className="panel panel--wide">
+      <ShellHeader wide />
+      <div className="panel panel--summary">
         <span className="panel-eyebrow">Resumen</span>
 
         {error && (
@@ -111,77 +113,98 @@ export function SummaryTrip() {
           <p className="panel-loading">Cargando resumen...</p>
         )}
 
-        {status === "success" && summary && (
-          <>
-            <h1 className="panel-title">Disponibilidad del grupo</h1>
-            <p className="panel-subtitle">
-              Así de bien encajan las fechas de todo el mundo. Cuanto más
-              oscuro, más gente puede.
-            </p>
+        {status === "success" && summary && range && (
+          <Stagger>
+            <StaggerItem>
+              <h1 className="panel-title">Disponibilidad del grupo</h1>
+              <p className="panel-subtitle">
+                Así de bien encajan las fechas de todo el mundo
+                {trip && (
+                  <>
+                    {" "}
+                    en <strong>{trip.title}</strong>
+                  </>
+                )}
+                . Cuanto más cálido, más gente puede.
+              </p>
+            </StaggerItem>
 
-            <div className="field">
-              <span className="field-label-text">Mapa de disponibilidad</span>
-              <div className="calendar-card">
-                <DayPicker
-                  disabled={() => true}
-                  defaultMonth={firstAvailableDate(summary.availabilityByDate)}
-                  modifiers={buildHeatModifiers(
-                    summary.availabilityByDate,
-                    summary.totalParticipants,
-                  )}
-                  modifiersClassNames={{
-                    "heat-0": "heat-0",
-                    "heat-1": "heat-1",
-                    "heat-2": "heat-2",
-                    "heat-3": "heat-3",
-                    "heat-4": "heat-4",
-                  }}
+            <div className="summary-grid">
+              <StaggerItem className="summary-best">
+                <BestWindowCard
+                  best={best}
+                  totalParticipants={summary.totalParticipants}
                 />
-              </div>
-              <div className="heat-scale">
-                <div className="heat-scale-bar">
-                  <span className="heat-scale-seg heat-0" />
-                  <span className="heat-scale-seg heat-1" />
-                  <span className="heat-scale-seg heat-2" />
-                  <span className="heat-scale-seg heat-3" />
-                  <span className="heat-scale-seg heat-4" />
+              </StaggerItem>
+
+              <StaggerItem className="summary-calendar">
+                <span className="field-label-text">Mapa de disponibilidad</span>
+                <div className="calendar-card">
+                  <Calendar
+                    mode="heat"
+                    windowStart={range.start}
+                    windowEnd={range.end}
+                    counts={summary.availabilityByDate}
+                    total={summary.totalParticipants}
+                    best={best}
+                  />
                 </div>
-                <div className="heat-scale-labels">
-                  <span>Nadie disponible</span>
-                  <span>Todo el grupo disponible</span>
+                <div className="heat-scale">
+                  <div className="heat-scale-bar">
+                    <span className="heat-scale-seg heat-0" />
+                    <span className="heat-scale-seg heat-1" />
+                    <span className="heat-scale-seg heat-2" />
+                    <span className="heat-scale-seg heat-3" />
+                    <span className="heat-scale-seg heat-4" />
+                  </div>
+                  <div className="heat-scale-labels">
+                    <span>Nadie disponible</span>
+                    <span>Todo el grupo disponible</span>
+                  </div>
                 </div>
-              </div>
+              </StaggerItem>
+
+              <StaggerItem className="summary-side">
+                <div className="stat-tiles">
+                  <div className="stat-tile">
+                    <span className="field-label-text">
+                      Presupuesto sugerido
+                    </span>
+                    <p className="stat-value">
+                      {summary.budget === null ? (
+                        "—"
+                      ) : (
+                        <CountUp value={summary.budget} />
+                      )}
+                    </p>
+                    <small>
+                      {summary.budget === null
+                        ? "Todavía no hay participantes en el viaje, ¡sé el primero en unirte!"
+                        : "El mínimo del grupo, para que nadie se quede fuera"}
+                    </small>
+                  </div>
+                  <div className="stat-tile">
+                    <span className="field-label-text">Participantes</span>
+                    <p className="stat-value">
+                      <CountUp value={summary.totalParticipants} />
+                    </p>
+                    <small>
+                      {summary.totalParticipants === 1
+                        ? "persona ha marcado sus días"
+                        : "personas han marcado sus días"}
+                    </small>
+                  </div>
+                </div>
+
+                <CopyLinkField
+                  id="share-link"
+                  label="Invitar a más gente"
+                  value={`${APP_BASE_URL}/trips/${tripId}`}
+                />
+              </StaggerItem>
             </div>
-
-            <div className="stat">
-              <span className="field-label-text">Presupuesto sugerido</span>
-              {summary.budget === null ? (
-                <p className="stat-value stat-empty">
-                  Todavía no hay participantes en el viaje, ¡sé el primero en
-                  unirte!
-                </p>
-              ) : (
-                <p className="stat-value">{summary.budget}</p>
-              )}
-            </div>
-
-            <hr className="panel-divider" />
-
-            <CopyLinkField
-              id="share-link"
-              label="Invitar a más gente"
-              value={`${APP_BASE_URL}/trips/${tripId}`}
-            />
-          </>
+          </Stagger>
         )}
-
-        <hr className="panel-divider" />
-        <div className="meta-row">
-          <span>Total</span>
-          <strong>
-            {summary ? `${summary.totalParticipants} participantes` : "—"}
-          </strong>
-        </div>
       </div>
     </div>
   );

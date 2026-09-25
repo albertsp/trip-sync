@@ -25,20 +25,20 @@ test('permite escribir el nombre, el presupuesto y elegir divisa', async ({ page
 
   await page.getByLabel('Tu nombre').fill('Albert');
   await page.getByLabel('Presupuesto').fill('300');
-  await page.getByLabel('Divisa').selectOption('USD');
+  await page.getByRole('radio', { name: 'USD' }).check();
 
   await expect(page.getByLabel('Tu nombre')).toHaveValue('Albert');
-  await expect(page.getByLabel('Divisa')).toHaveValue('USD');
+  await expect(page.getByRole('radio', { name: 'USD' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'EUR' })).not.toBeChecked();
 });
 
 test('permite seleccionar una fecha disponible en el calendario', async ({ page }) => {
   await page.goto(`/trips/${tripId}`);
 
-  await page.getByRole('button', { name: 'Thursday, October 1st, 2026' }).click();
+  const day = page.getByRole('button', { name: /, 1 de octubre de 2026/ });
+  await day.click();
 
-  await expect(
-    page.getByRole('button', { name: 'Thursday, October 1st, 2026, selected' })
-  ).toBeVisible();
+  await expect(day).toHaveAttribute('aria-pressed', 'true');
 });
 
 

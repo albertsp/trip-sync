@@ -1,12 +1,10 @@
 import { Link } from "react-router-dom";
+import { ShellHeader } from "./ShellHeader";
 
 export function NotFound() {
   return (
     <div className="app-shell">
-      <Link to="/" className="brand">
-        <span className="brand-mark">TS</span>
-        TripSync
-      </Link>
+      <ShellHeader />
       <div className="panel">
         <span className="panel-eyebrow">Error 404</span>
         <h1 className="panel-title">Página no encontrada</h1>
