@@ -1,49 +1,34 @@
-import { useEffect, useState } from "react";
-import { DayPicker } from "react-day-picker";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import "react-day-picker/dist/style.css";
 import { API_BASE_URL, APP_BASE_URL } from "../lib/api";
+import { bestWindow, spanOfCounts } from "../lib/availability";
 import { stringToDate } from "../lib/date";
+import { BestWindowCard } from "./BestWindowCard";
+import { Calendar } from "./calendar/Calendar";
 import { CopyLinkField } from "./CopyLinkField";
-import type { RequestStatus, SummaryResponse } from "../types";
+import { ShellHeader } from "./ShellHeader";
+import type {
+  RequestStatus,
+  SummaryResponse,
+  Trip,
+  TripWindow,
+} from "../types";
 
-type HeatLevel = "heat-0" | "heat-1" | "heat-2" | "heat-3" | "heat-4";
-
-function heatLevel(count: number, totalParticipants: number): HeatLevel {
-  if (totalParticipants === 0) return "heat-0";
-  const ratio = count / totalParticipants;
-  if (ratio === 0) return "heat-0";
-  if (ratio <= 0.25) return "heat-1";
-  if (ratio <= 0.5) return "heat-2";
-  if (ratio <= 0.75) return "heat-3";
-  return "heat-4";
-}
-
-function firstAvailableDate(
-  availabilityByDate: Record<string, number>,
-): Date | undefined {
-  const dates = Object.keys(availabilityByDate).sort();
-  return dates.length > 0 ? stringToDate(dates[0]) : undefined;
-}
-
-function buildHeatModifiers(
-  availabilityByDate: Record<string, number>,
-  totalParticipants: number,
-): Record<HeatLevel, Date[]> {
-  const modifiers: Record<HeatLevel, Date[]> = {
-    "heat-0": [],
-    "heat-1": [],
-    "heat-2": [],
-    "heat-3": [],
-    "heat-4": [],
-  };
-
-  for (const [dateStr, count] of Object.entries(availabilityByDate)) {
-    const level = heatLevel(count, totalParticipants);
-    modifiers[level].push(stringToDate(dateStr));
+/** The trip only refines the view (title and window), so a failure here isn't fatal. */
+async function fetchTripWindow(tripId: string): Promise<TripWindow | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trips/${tripId}`);
+    if (!response.ok) return null;
+    const data: Trip = await response.json();
+    return {
+      title: data.title,
+      windowStart: stringToDate(data.windowStart),
+      windowEnd: stringToDate(data.windowEnd),
+      status: data.status,
+    };
+  } catch {
+    return null;
   }
-
-  return modifiers;
 }
 
 export function SummaryTrip() {
@@ -51,6 +36,7 @@ export function SummaryTrip() {
 
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [trip, setTrip] = useState<TripWindow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,9 +47,10 @@ export function SummaryTrip() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/trips/${tripId}/summary`,
-        );
+        const [response, tripWindow] = await Promise.all([
+          fetch(`${API_BASE_URL}/trips/${tripId}/summary`),
+          fetchTripWindow(tripId ?? ""),
+        ]);
 
         if (!response.ok) {
           throw new Error(`Server Error: ${response.status}`);
@@ -74,6 +61,7 @@ export function SummaryTrip() {
         if (cancelled) return;
 
         setSummary(data);
+        setTrip(tripWindow);
         setStatus("success");
       } catch (err) {
         if (cancelled) return;
@@ -90,12 +78,24 @@ export function SummaryTrip() {
     };
   }, [tripId]);
 
+  const range = useMemo(() => {
+    if (!summary) return null;
+    return trip
+      ? { start: trip.windowStart, end: trip.windowEnd }
+      : spanOfCounts(summary.availabilityByDate);
+  }, [summary, trip]);
+
+  const best = useMemo(
+    () =>
+      summary && range
+        ? bestWindow(summary.availabilityByDate, range.start, range.end)
+        : null,
+    [summary, range],
+  );
+
   return (
     <div className="app-shell">
-      <Link to="/" className="brand">
-        <span className="brand-mark">TS</span>
-        TripSync
-      </Link>
+      <ShellHeader />
       <div className="panel panel--wide">
         <span className="panel-eyebrow">Resumen</span>
 
@@ -111,31 +111,35 @@ export function SummaryTrip() {
           <p className="panel-loading">Cargando resumen...</p>
         )}
 
-        {status === "success" && summary && (
+        {status === "success" && summary && range && (
           <>
             <h1 className="panel-title">Disponibilidad del grupo</h1>
             <p className="panel-subtitle">
-              Así de bien encajan las fechas de todo el mundo. Cuanto más
-              oscuro, más gente puede.
+              Así de bien encajan las fechas de todo el mundo
+              {trip && (
+                <>
+                  {" "}
+                  en <strong>{trip.title}</strong>
+                </>
+              )}
+              . Cuanto más cálido, más gente puede.
             </p>
+
+            <BestWindowCard
+              best={best}
+              totalParticipants={summary.totalParticipants}
+            />
 
             <div className="field">
               <span className="field-label-text">Mapa de disponibilidad</span>
               <div className="calendar-card">
-                <DayPicker
-                  disabled={() => true}
-                  defaultMonth={firstAvailableDate(summary.availabilityByDate)}
-                  modifiers={buildHeatModifiers(
-                    summary.availabilityByDate,
-                    summary.totalParticipants,
-                  )}
-                  modifiersClassNames={{
-                    "heat-0": "heat-0",
-                    "heat-1": "heat-1",
-                    "heat-2": "heat-2",
-                    "heat-3": "heat-3",
-                    "heat-4": "heat-4",
-                  }}
+                <Calendar
+                  mode="heat"
+                  windowStart={range.start}
+                  windowEnd={range.end}
+                  counts={summary.availabilityByDate}
+                  total={summary.totalParticipants}
+                  best={best}
                 />
               </div>
               <div className="heat-scale">

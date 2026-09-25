@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import { API_BASE_URL } from "../lib/api";
+import { ButtonLink } from "./ui/Button";
 
 interface AuthModalProps {
   open: boolean;
@@ -51,12 +52,13 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           Inicia sesión con Google para crear y gestionar tus viajes.
         </p>
 
-        <a
-          className="btn-solid btn-google"
+        <ButtonLink
+          block
+          arrow
           href={`${API_BASE_URL}/oauth2/authorization/google`}
         >
           Continuar con Google
-        </a>
+        </ButtonLink>
       </div>
     </div>
   );

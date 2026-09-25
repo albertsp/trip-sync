@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "./ui/Button";
 
 interface CopyLinkFieldProps {
   id: string;
@@ -30,9 +31,9 @@ export function CopyLinkField({ id, label, value }: CopyLinkFieldProps) {
           value={value}
           onFocus={(e) => e.target.select()}
         />
-        <button type="button" className="copy-btn" onClick={handleCopy}>
-          {copied ? "Copiado" : "Copiar"}
-        </button>
+        <Button size="sm" className="shrink-0 px-5" onClick={handleCopy}>
+          {copied ? "Copiado ✓" : "Copiar"}
+        </Button>
       </div>
     </div>
   );

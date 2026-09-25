@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { DayPicker } from "react-day-picker";
 import { Link, useParams } from "react-router-dom";
-import "react-day-picker/dist/style.css";
 import { API_BASE_URL } from "../lib/api";
 import { dateToString, stringToDate } from "../lib/date";
+import { ShellHeader } from "./ShellHeader";
+import { Calendar } from "./calendar/Calendar";
+import { Button } from "./ui/Button";
 import type {
   JoinTripForm,
   Participant,
@@ -13,10 +14,7 @@ import type {
   TripWindow,
 } from "../types";
 
-function validate(
-  join: JoinTripForm,
-  availableDates: Date[],
-): string | null {
+function validate(join: JoinTripForm, availableDates: Date[]): string | null {
   if (!join.name.trim()) return "Indica tu nombre";
   const amount = parseFloat(join.budgetAmount);
   if (!join.budgetAmount || Number.isNaN(amount) || amount <= 0)
@@ -138,10 +136,7 @@ export function JoinForm() {
 
   return (
     <div className="app-shell">
-      <Link to="/" className="brand">
-        <span className="brand-mark">TS</span>
-        TripSync
-      </Link>
+      <ShellHeader />
       <div className="panel">
         <span className="panel-eyebrow">Unirse al viaje</span>
 
@@ -199,20 +194,33 @@ export function JoinForm() {
                 <div className="field">
                   <span className="field-label-text">Fechas disponibles</span>
                   <div className="calendar-card">
-                    <DayPicker
-                      required={true}
-                      mode="multiple"
+                    <Calendar
+                      mode="paint"
+                      windowStart={trip.windowStart}
+                      windowEnd={trip.windowEnd}
                       selected={availableDates}
-                      onSelect={setAvailableDates}
-                      defaultMonth={trip.windowStart}
-                      startMonth={trip.windowStart}
-                      endMonth={trip.windowEnd}
-                      disabled={{
-                        before: trip.windowStart,
-                        after: trip.windowEnd,
-                      }}
+                      onChange={setAvailableDates}
                     />
                   </div>
+                  <div className="cal-foot">
+                    <span className="cal-counter" aria-live="polite">
+                      <strong>{availableDates.length}</strong>{" "}
+                      {availableDates.length === 1
+                        ? "día marcado"
+                        : "días marcados"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={availableDates.length === 0}
+                      onClick={() => setAvailableDates([])}
+                    >
+                      Borrar selección
+                    </Button>
+                  </div>
+                  <p className="field-hint">
+                    Haz clic o arrastra sobre varios días para marcarlos.
+                  </p>
                 </div>
 
                 <div className="field-row">
@@ -242,9 +250,15 @@ export function JoinForm() {
                   </div>
                 </div>
 
-                <button type="submit" disabled={status === "loading"}>
+                <Button
+                  type="submit"
+                  block
+                  arrow
+                  className="mt-2"
+                  disabled={status === "loading"}
+                >
                   Unirse al viaje
-                </button>
+                </Button>
               </form>
             </>
           )}
