@@ -7,6 +7,14 @@ import { Calendar } from "./calendar/Calendar";
 import { Stamp } from "./Stamp";
 import { Swap } from "./motion/Swap";
 import { Button, ButtonLink } from "./ui/Button";
+import { ChipGroup } from "./ui/ChipGroup";
+import {
+  DESTINATION_OPTIONS,
+  INTEREST_OPTIONS,
+  NOTES_MAX_LENGTH,
+  toggleInterest,
+  validateJoin,
+} from "../lib/forms";
 import { CurrencyToggle } from "./ui/CurrencyToggle";
 import type {
   JoinTripForm,
@@ -17,16 +25,6 @@ import type {
   TripWindow,
 } from "../types";
 
-function validate(join: JoinTripForm, availableDates: Date[]): string | null {
-  if (!join.name.trim()) return "Indica tu nombre";
-  const amount = parseFloat(join.budgetAmount);
-  if (!join.budgetAmount || Number.isNaN(amount) || amount <= 0)
-    return "Indica un presupuesto válido";
-  if (availableDates.length === 0)
-    return "Debes seleccionar al menos un día disponible";
-  return null;
-}
-
 export function JoinForm() {
   const { id: tripId } = useParams<{ id: string }>();
 
@@ -34,6 +32,10 @@ export function JoinForm() {
     name: "",
     budgetAmount: "",
     budgetCurrency: "EUR",
+    destinationType: "",
+    originCity: "",
+    interests: [],
+    notes: "",
   });
 
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
@@ -83,14 +85,16 @@ export function JoinForm() {
     };
   }, [tripId]);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
     setJoin({ ...join, [e.target.name]: e.target.value });
   }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    const validationError = validate(join, availableDates);
+    const validationError = validateJoin(join, availableDates.length);
     if (validationError) {
       setError(validationError);
       return;
@@ -101,6 +105,10 @@ export function JoinForm() {
     const dates = availableDates.map(dateToString);
     const payload = {
       name: join.name,
+      destinationType: join.destinationType,
+      originCity: join.originCity.trim(),
+      interests: join.interests,
+      notes: join.notes.trim(),
       budgetAmount: parseFloat(join.budgetAmount),
       budgetCurrency: join.budgetCurrency,
       availableDates: dates,
@@ -204,6 +212,61 @@ export function JoinForm() {
                       value={join.name}
                       onChange={handleChange}
                     />
+                  </div>
+
+                  <ChipGroup
+                    label="Tipo de destino"
+                    name="destinationType"
+                    mode="single"
+                    options={DESTINATION_OPTIONS}
+                    selected={join.destinationType ? [join.destinationType] : []}
+                    onToggle={(destinationType) =>
+                      setJoin((prev) => ({ ...prev, destinationType }))
+                    }
+                  />
+
+                  <div className="field">
+                    <label htmlFor="originCity">Ciudad de origen</label>
+                    <input
+                      id="originCity"
+                      type="text"
+                      name="originCity"
+                      placeholder="Madrid"
+                      value={join.originCity}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <ChipGroup
+                    label="Intereses"
+                    optionalHint="opcional"
+                    name="interests"
+                    mode="multiple"
+                    options={INTEREST_OPTIONS}
+                    selected={join.interests}
+                    onToggle={(interest) =>
+                      setJoin((prev) => ({
+                        ...prev,
+                        interests: toggleInterest(prev.interests, interest),
+                      }))
+                    }
+                  />
+
+                  <div className="field">
+                    <label htmlFor="notes">
+                      Notas <span className="field-optional">· opcional</span>
+                    </label>
+                    <textarea
+                      id="notes"
+                      name="notes"
+                      maxLength={NOTES_MAX_LENGTH}
+                      placeholder="Algo que queráis evitar o que sea imprescindible"
+                      value={join.notes}
+                      onChange={handleChange}
+                    />
+                    <span className="char-counter" aria-live="off">
+                      {join.notes.length}/{NOTES_MAX_LENGTH}
+                    </span>
                   </div>
 
                   <div className="field">
