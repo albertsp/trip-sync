@@ -29,6 +29,7 @@ public class UserController {
 
         User user = userService.findOrCreateUser(principal);
         return ResponseEntity.ok(Map.of(
+                "id", user.getId(),
                 "name", user.getName(),
                 "email", user.getEmail()
         ));

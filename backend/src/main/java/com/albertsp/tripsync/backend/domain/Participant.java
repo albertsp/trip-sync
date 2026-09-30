@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,7 +43,7 @@ public class Participant {
 
     @ElementCollection
     @Enumerated(EnumType.STRING)
-    private Set<Interest> interests;
+    private Set<Interest> interests = new HashSet<>();
 
     @Nullable
     @Column(length = 200)

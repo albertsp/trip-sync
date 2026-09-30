@@ -34,13 +34,11 @@ public class TestSeedController {
         trip.setTitle(request.title());
         trip.setWindowStart(request.windowStart());
         trip.setWindowEnd(request.windowEnd());
+        trip.setPreferredDurationDays(request.preferredDurationDays());
 
         Trip saved = tripRepository.save(trip);
 
-        TripResponse response = new TripResponse(
-                saved.getId(), saved.getTitle(), saved.getWindowStart(),
-                saved.getWindowEnd(), saved.getStatus(), saved.getCreatedAt()
-        );
+        TripResponse response = TripResponse.from(saved);
         return ResponseEntity.ok(response);
     }
 

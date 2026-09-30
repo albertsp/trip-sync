@@ -28,7 +28,7 @@ public class TripController {
 
         Trip saved = tripService.createTrip(request, principal);
 
-        TripResponse response = new TripResponse(saved.getId(), saved.getTitle(), saved.getWindowStart(), saved.getWindowEnd(), saved.getStatus(), saved.getCreatedAt());
+        TripResponse response = TripResponse.from(saved);
 
         return ResponseEntity.created(URI.create("/trips/" + saved.getId())).body(response);
     }
@@ -38,7 +38,7 @@ public class TripController {
 
         Trip trip = tripService.getTripEntityById(id);
 
-        TripResponse response = new TripResponse(trip.getId(),trip.getTitle(), trip.getWindowStart(), trip.getWindowEnd(), trip.getStatus(), trip.getCreatedAt());
+        TripResponse response = TripResponse.from(trip);
 
         return ResponseEntity.ok(response);
     }
