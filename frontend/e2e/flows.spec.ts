@@ -10,6 +10,7 @@ const trip = {
   windowEnd: '2026-10-31',
   status: 'OPEN',
   createdAt: '2026-09-01T10:00:00Z',
+  preferredDurationDays: null,
 };
 
 async function mockTrip(page: Page, overrides: Partial<typeof trip> = {}) {
@@ -32,12 +33,20 @@ test.describe('Unirse a un viaje', () => {
           budgetAmount: 300,
           budgetCurrency: 'USD',
           editToken: 'edit-token',
+          destinationType: 'BEACH',
+          originCity: 'Madrid',
+          interests: ['GASTRONOMY', 'RELAX'],
         },
       }),
     );
 
     await page.goto('/trips/abc');
     await page.getByLabel('Tu nombre').fill('Albert');
+    await page.getByRole('radio', { name: 'Playa' }).check();
+    await page.getByLabel('Ciudad de origen').fill('  Madrid  ');
+    await page.getByRole('checkbox', { name: 'Gastronomía' }).check();
+    await page.getByRole('checkbox', { name: 'Relax' }).check();
+    await page.getByLabel(/Notas/).fill('Sin madrugones');
     await page.getByLabel('Presupuesto').fill('300');
     await page.getByRole('radio', { name: 'USD' }).check();
     await page.getByRole('button', { name: /, 9 de octubre de 2026/ }).click();
@@ -53,6 +62,10 @@ test.describe('Unirse a un viaje', () => {
       budgetAmount: 300,
       budgetCurrency: 'USD',
       availableDates: ['2026-10-09', '2026-10-10'],
+      destinationType: 'BEACH',
+      originCity: 'Madrid',
+      interests: ['GASTRONOMY', 'RELAX'],
+      notes: 'Sin madrugones',
     });
 
     await expect(page.getByRole('heading', { name: '¡Estás dentro!' })).toBeVisible();
@@ -75,6 +88,14 @@ test.describe('Unirse a un viaje', () => {
 
     await page.getByLabel('Tu nombre').fill('Albert');
     await submit.click();
+    await expect(page.getByRole('alert')).toHaveText('Elige el tipo de destino');
+
+    await page.getByRole('radio', { name: 'Ciudad' }).check();
+    await submit.click();
+    await expect(page.getByRole('alert')).toHaveText('Indica tu ciudad de origen');
+
+    await page.getByLabel('Ciudad de origen').fill('Madrid');
+    await submit.click();
     await expect(page.getByRole('alert')).toHaveText('Indica un presupuesto válido');
 
     await page.getByLabel('Presupuesto').fill('300');
@@ -91,6 +112,8 @@ test.describe('Unirse a un viaje', () => {
 
     await page.goto('/trips/abc');
     await page.getByLabel('Tu nombre').fill('Albert');
+    await page.getByRole('radio', { name: 'Indiferente' }).check();
+    await page.getByLabel('Ciudad de origen').fill('Madrid');
     await page.getByLabel('Presupuesto').fill('300');
     await page.getByRole('button', { name: /, 9 de octubre de 2026/ }).click();
     await page.getByRole('button', { name: 'Unirse al viaje' }).click();
@@ -134,6 +157,7 @@ test.describe('Crear un viaje', () => {
     await page.getByLabel('Título del viaje').fill('Escapada de otoño');
     await page.getByLabel('Desde').fill('2026-10-01');
     await page.getByLabel('Hasta').fill('2026-10-31');
+    await page.getByLabel('Duración del viaje (días)').fill('4');
 
     const request = page.waitForRequest(
       (req) => req.url() === `${API}/trips` && req.method() === 'POST',
@@ -144,6 +168,7 @@ test.describe('Crear un viaje', () => {
       title: 'Escapada de otoño',
       windowStart: '2026-10-01',
       windowEnd: '2026-10-31',
+      preferredDurationDays: 4,
     });
     await expect(page.getByRole('heading', { name: '¡Viaje creado!' })).toBeVisible();
     await expect(page.getByLabel('Enlace de invitación')).toHaveValue(/\/trips\/abc$/);
@@ -165,6 +190,29 @@ test.describe('Crear un viaje', () => {
     await expect(page.getByRole('alert')).toHaveText(
       'La fecha de fin debe ser posterior a la de inicio',
     );
+  });
+
+  test('la duración es opcional (null) y se valida entre 1 y 30', async ({ page }) => {
+    await mockSession(page, true);
+    await page.route(`${API}/trips`, (route) => route.fulfill({ json: trip }));
+
+    await page.goto('/');
+    await page.getByLabel('Título del viaje').fill('Escapada de otoño');
+    await page.getByLabel('Desde').fill('2026-10-01');
+    await page.getByLabel('Hasta').fill('2026-10-31');
+
+    await page.getByLabel('Duración del viaje (días)').fill('31');
+    await page.getByRole('button', { name: 'Crear viaje' }).click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'La duración debe estar entre 1 y 30 días',
+    );
+
+    await page.getByLabel('Duración del viaje (días)').fill('');
+    const request = page.waitForRequest(
+      (req) => req.url() === `${API}/trips` && req.method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Crear viaje' }).click();
+    expect((await request).postDataJSON().preferredDurationDays).toBeNull();
   });
 
   test('sin sesión: el formulario abre el diálogo de acceso con Google', async ({ page }) => {

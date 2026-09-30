@@ -13,6 +13,7 @@ import { Swap } from "./motion/Swap";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, ButtonLink } from "./ui/Button";
 import { Chip } from "./ui/Chip";
+import { parseDuration, validateDuration } from "../lib/forms";
 import type { AuthUser, CreateTripForm, RequestStatus, Trip } from "../types";
 
 function validate(form: CreateTripForm): string | null {
@@ -21,7 +22,7 @@ function validate(form: CreateTripForm): string | null {
     return "Indica el rango de fechas posibles";
   if (form.windowEnd < form.windowStart)
     return "La fecha de fin debe ser posterior a la de inicio";
-  return null;
+  return validateDuration(form.preferredDurationDays);
 }
 
 const HERO_POINTS = [
@@ -35,6 +36,7 @@ export function Landing() {
     title: "",
     windowStart: "",
     windowEnd: "",
+    preferredDurationDays: "",
   });
 
   const [status, setStatus] = useState<RequestStatus>("idle");
@@ -100,7 +102,12 @@ export function Landing() {
           "Content-Type": "application/json",
           ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}),
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          title: form.title,
+          windowStart: form.windowStart,
+          windowEnd: form.windowEnd,
+          preferredDurationDays: parseDuration(form.preferredDurationDays),
+        }),
       });
 
       if (!response.ok) {
@@ -241,11 +248,27 @@ export function Landing() {
                           </div>
                         </div>
 
+                        <div className="field mt-5">
+                          <label htmlFor="preferredDurationDays">
+                            Duración del viaje (días)
+                          </label>
+                          <input
+                            id="preferredDurationDays"
+                            type="number"
+                            name="preferredDurationDays"
+                            placeholder="4"
+                            min={1}
+                            max={30}
+                            value={form.preferredDurationDays}
+                            onChange={handleChange}
+                          />
+                        </div>
+
                         <Button
                           type="submit"
                           block
                           arrow
-                          className="mt-5"
+                          className="mt-1"
                           disabled={status === "loading"}
                         >
                           Crear viaje
