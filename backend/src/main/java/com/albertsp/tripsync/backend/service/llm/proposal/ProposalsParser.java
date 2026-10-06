@@ -2,12 +2,9 @@ package com.albertsp.tripsync.backend.service.llm.proposal;
 
 import com.albertsp.tripsync.backend.domain.ProposalAngle;
 import com.albertsp.tripsync.backend.exceptions.InvalidLlmOutputException;
-import jakarta.validation.ConstraintViolation;
+import com.albertsp.tripsync.backend.service.llm.StructuredOutput;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -27,16 +24,7 @@ import java.util.stream.Collectors;
 @Component
 public class ProposalsParser {
 
-    private static final int MAX_REPORTED_VIOLATIONS = 6;
-    private static final int MAX_ERROR_CHARS = 200;
-    private static final Pattern CODE_FENCE = Pattern.compile("^```(?:json)?\\s*(.*?)\\s*```$", Pattern.DOTALL);
     private static final Pattern ACCENTS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
-
-    private static final JsonMapper MAPPER = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_NULL_CREATOR_PROPERTIES)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
 
     private final Validator validator;
 
@@ -45,28 +33,11 @@ public class ProposalsParser {
     }
 
     public ProposalsDto parse(String raw, ProposalsContext context) {
-        ProposalsDto parsed = deserialize(raw);
+        ProposalsDto parsed = StructuredOutput.read(raw, ProposalsDto.class);
         ProposalsDto clean = sanitize(parsed);
         validateStructure(clean, raw);
         validateRules(clean, context, raw);
         return clean;
-    }
-
-    private ProposalsDto deserialize(String raw) {
-        if (raw == null || raw.isBlank()) {
-            throw new InvalidLlmOutputException("La respuesta está vacía", raw, null);
-        }
-        String json = raw.trim();
-        var fence = CODE_FENCE.matcher(json);
-        if (fence.matches()) {
-            json = fence.group(1);
-        }
-        try {
-            return MAPPER.readValue(json, ProposalsDto.class);
-        } catch (JacksonException e) {
-            throw new InvalidLlmOutputException(
-                    "JSON inválido o con campos inesperados: " + firstLine(e.getOriginalMessage()), raw, e);
-        }
     }
 
     private ProposalsDto sanitize(ProposalsDto dto) {
@@ -97,16 +68,7 @@ public class ProposalsParser {
     }
 
     private void validateStructure(ProposalsDto dto, String raw) {
-        Set<ConstraintViolation<ProposalsDto>> violations = validator.validate(dto);
-        if (violations.isEmpty()) {
-            return;
-        }
-        String detail = violations.stream()
-                .map(v -> v.getPropertyPath() + " " + v.getMessage())
-                .sorted()
-                .limit(MAX_REPORTED_VIOLATIONS)
-                .collect(Collectors.joining("; "));
-        throw new InvalidLlmOutputException("Campos no válidos: " + detail, raw, null);
+        StructuredOutput.validate(validator, dto, raw);
     }
 
     private void validateRules(ProposalsDto dto, ProposalsContext context, String raw) {
@@ -141,13 +103,5 @@ public class ProposalsParser {
     private static String normalize(String text) {
         String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD);
         return ACCENTS.matcher(decomposed).replaceAll("").toLowerCase(Locale.ROOT).trim();
-    }
-
-    private static String firstLine(String message) {
-        if (message == null) {
-            return "";
-        }
-        String line = message.lines().findFirst().orElse("");
-        return line.length() <= MAX_ERROR_CHARS ? line : line.substring(0, MAX_ERROR_CHARS) + "…";
     }
 }
