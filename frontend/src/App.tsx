@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { JoinForm } from "./components/JoinForm";
 import { SummaryTrip } from "./components/SummaryTrip";
 import { NotFound } from "./components/NotFound";
+import { Privacy } from "./components/Privacy";
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/trips/:id" element={<JoinForm />} />
       <Route path="/trips/:id/summary" element={<SummaryTrip />} />
+      <Route path="/privacidad" element={<Privacy />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

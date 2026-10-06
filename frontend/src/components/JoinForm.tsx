@@ -330,6 +330,12 @@ export function JoinForm() {
                   >
                     Unirse al viaje
                   </Button>
+                  <p className="mt-3 mb-0 text-center text-[.8rem] text-ink-3">
+                    Tus respuestas se usan para sugerir viajes al grupo con ayuda de IA.{" "}
+                    <Link to="/privacidad" className="panel-link">
+                      Privacidad
+                    </Link>
+                  </p>
                 </form>
               </>
             )}

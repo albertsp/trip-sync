@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   API_BASE_URL,
@@ -298,6 +299,12 @@ export function Landing() {
           </div>
         </div>
       </main>
+
+      <footer className="pb-6 text-center text-[.8rem] text-ink-3">
+        <Link to="/privacidad" className="panel-link">
+          Privacidad
+        </Link>
+      </footer>
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
