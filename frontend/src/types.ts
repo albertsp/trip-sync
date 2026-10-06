@@ -111,5 +111,8 @@ export interface TripTask {
   id: string;
   title: string;
   assigneeId: string | null;
+  assigneeName: string | null;
   done: boolean;
+  /** Assigned to the visitor (identified by edit token). */
+  mine: boolean;
 }

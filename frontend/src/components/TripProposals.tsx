@@ -10,6 +10,8 @@ import {
 import { useCurrentUser } from "../lib/useCurrentUser";
 import type { ProposalsResponse } from "../types";
 import { ProposalCard } from "./ProposalCard";
+import { TripChecklist } from "./TripChecklist";
+import { TripItinerary } from "./TripItinerary";
 import { Button } from "./ui/Button";
 
 type LoadStatus = "idle" | "loading" | "success" | "error";
@@ -129,12 +131,12 @@ export function TripProposals({ tripId, creatorId }: TripProposalsProps) {
       "confirm",
       needsTieChoice ? { proposalId: tieChoice } : undefined,
     );
-    if (response) await load(true);
+    if (response) setData(await response.json());
   }
 
   async function handlePlan() {
     const response = await creatorPost("plan", "plan");
-    if (response) await load(true);
+    if (response) setData(await response.json());
   }
 
   async function handleVote(proposalId: string) {
@@ -157,12 +159,13 @@ export function TripProposals({ tripId, creatorId }: TripProposalsProps) {
   const tripStatus = data?.status;
   const isVoting = tripStatus === "VOTING";
   const isClosed = tripStatus === "CONFIRMED" || tripStatus === "PLANNING";
-  // The contract has no winner flag yet: highlight the unique vote leader once closed.
-  const winnerId = isClosed && leaders.length === 1 ? leaders[0].id : null;
+  const winner = proposals.find((proposal) => proposal.winner) ?? null;
+  const winnerId = isClosed ? (winner?.id ?? null) : null;
   const needsTieChoice = isVoting && proposals.length > 0 && leaders.length !== 1;
   const tieOptions = leaders.length > 1 ? leaders : proposals;
   const hasProposals = proposals.length > 0;
   const generating = busy === "generate";
+  const planning = busy === "plan";
 
   return (
     <section aria-labelledby="proposals-title" className="flex flex-col gap-4">
@@ -241,6 +244,15 @@ export function TripProposals({ tripId, creatorId }: TripProposalsProps) {
           IA analizando fechas, presupuesto e intereses…
         </p>
       )}
+      {planning && (
+        <p role="status" className="m-0 flex items-center gap-2.5 text-ink-2">
+          <span
+            aria-hidden="true"
+            className="size-4 rounded-full border-2 border-line border-t-sun motion-safe:animate-spin"
+          />
+          IA montando el itinerario y la lista de tareas…
+        </p>
+      )}
 
       {actionError && <p role="alert">{actionError}</p>}
 
@@ -289,8 +301,18 @@ export function TripProposals({ tripId, creatorId }: TripProposalsProps) {
               Montar viaje
             </Button>
           )}
+          {tripStatus === "PLANNING" && (
+            <Button size="sm" variant="ghost" disabled={busy !== null} onClick={handlePlan}>
+              Regenerar plan
+            </Button>
+          )}
         </div>
       )}
+
+      {status === "success" && winner?.detail && (
+        <TripItinerary destination={winner.destination} detail={winner.detail} />
+      )}
+      {status === "success" && tripStatus === "PLANNING" && <TripChecklist tripId={tripId} />}
 
       {status === "success" && hasProposals && (
         <small className="text-ink-3">Estimaciones orientativas generadas por IA</small>

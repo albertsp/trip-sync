@@ -38,4 +38,12 @@ describe("parseRetryAfter", () => {
     expect(parseRetryAfter(null)).toBeNull();
     expect(parseRetryAfter("Wed, 21 Oct 2026 07:28:00 GMT")).toBeNull();
   });
+
+  it("has its own copy for the plan step", () => {
+    expect(proposalErrorMessage(401, "plan")).toBe("Inicia sesión para montar el viaje");
+    expect(proposalErrorMessage(409, "plan")).toBe("Primero cierra la votación para elegir el viaje");
+    expect(proposalErrorMessage(429, "plan")).toBe("Has alcanzado el límite de generaciones del plan de este viaje");
+    expect(proposalErrorMessage(429, "plan", 20)).toBe("Espera un minuto");
+    expect(proposalErrorMessage(502, "plan")).toBe("La IA no ha podido montar el viaje, prueba de nuevo");
+  });
 });

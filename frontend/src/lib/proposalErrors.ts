@@ -12,21 +12,26 @@ export function proposalErrorMessage(
     case 401:
       return action === "vote"
         ? "No te reconocemos como participante de este viaje"
-        : "Inicia sesión para generar propuestas";
+        : action === "plan"
+          ? "Inicia sesión para montar el viaje"
+          : "Inicia sesión para generar propuestas";
     case 403:
       return "Solo el creador del viaje puede hacerlo";
     case 409:
-      return action === "confirm"
-        ? "Hay un empate: elige tú la ganadora"
-        : "La votación ya está cerrada";
+      if (action === "confirm") return "Hay un empate: elige tú la ganadora";
+      if (action === "plan") return "Primero cierra la votación para elegir el viaje";
+      return "La votación ya está cerrada";
     case 422:
       return "Faltan participantes con preferencias (mínimo 3)";
     case 429:
-      return retryAfterSeconds !== null && retryAfterSeconds > 0
-        ? "Espera un minuto"
+      if (retryAfterSeconds !== null && retryAfterSeconds > 0) return "Espera un minuto";
+      return action === "plan"
+        ? "Has alcanzado el límite de generaciones del plan de este viaje"
         : "Has alcanzado el límite de generaciones de este viaje";
     case 502:
-      return "La IA no ha podido generar propuestas, prueba de nuevo";
+      return action === "plan"
+        ? "La IA no ha podido montar el viaje, prueba de nuevo"
+        : "La IA no ha podido generar propuestas, prueba de nuevo";
     case 503:
       return "La generación con IA no está disponible ahora mismo";
     default:
