@@ -20,7 +20,9 @@
       "currency": "EUR",
       "overBudgetCount": 1,
       "bestDates": { "start": "2026-10-02", "end": "2026-10-05" },
-      "votes": 3
+      "votes": 3,
+      "winner": false,
+      "detail": null
     },
     {
       "id": "22222222-2222-2222-2222-222222222222",
@@ -36,7 +38,9 @@
       "currency": "EUR",
       "overBudgetCount": 0,
       "bestDates": { "start": "2026-10-02", "end": "2026-10-05" },
-      "votes": 1
+      "votes": 1,
+      "winner": false,
+      "detail": null
     },
     {
       "id": "33333333-3333-3333-3333-333333333333",
@@ -52,7 +56,9 @@
       "currency": "EUR",
       "overBudgetCount": 2,
       "bestDates": { "start": "2026-10-02", "end": "2026-10-05" },
-      "votes": 0
+      "votes": 0,
+      "winner": false,
+      "detail": null
     }
   ]
 }

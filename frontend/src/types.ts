@@ -88,6 +88,13 @@ export interface TripProposalItem {
   overBudgetCount: number;
   bestDates: { start: string; end: string };
   votes: number;
+  winner: boolean;
+  detail: ProposalDetail | null;
+}
+
+export interface ProposalDetail {
+  days: { day: number; morning: string; afternoon: string; evening: string }[];
+  tips: string[];
 }
 
 export interface ProposalsResponse {
