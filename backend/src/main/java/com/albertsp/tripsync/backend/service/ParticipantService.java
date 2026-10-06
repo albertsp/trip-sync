@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 @Service
 public class ParticipantService {
 
+    private static final int MAX_NAME_LENGTH = 80;
     private static final int MAX_ORIGIN_CITY_LENGTH = 80;
     private static final int MAX_NOTES_LENGTH = 200;
 
@@ -39,12 +40,13 @@ public class ParticipantService {
     public Participant createParticipant(UUID tripId, CreateParticipantRequest request) {
         Trip trip = tripService.getTripEntityById(tripId);
 
+        validateBasics(trip, request);
         String originCity = validatePreferences(request);
 
         Participant participant = new Participant();
 
         participant.setTrip(trip);
-        participant.setName(request.name());
+        participant.setName(request.name().trim());
         participant.setBudgetAmount(request.budgetAmount());
         participant.setBudgetCurrency(request.budgetCurrency());
         participant.setEditToken(UUID.randomUUID());
@@ -67,6 +69,27 @@ public class ParticipantService {
 
         availabilityRepository.saveAll(availabilities);
         return savedParticipant;
+    }
+
+    /** Name, budget and available dates: the rest of the app (summary, prompts) assumes these are sane. */
+    private void validateBasics(Trip trip, CreateParticipantRequest request) {
+        if (request.name() == null || request.name().isBlank()) {
+            throw new InvalidRequestException("El nombre es obligatorio");
+        }
+        if (request.name().trim().length() > MAX_NAME_LENGTH) {
+            throw new InvalidRequestException("El nombre no puede superar los " + MAX_NAME_LENGTH + " caracteres");
+        }
+        if (request.budgetAmount() != null && request.budgetAmount().signum() < 0) {
+            throw new InvalidRequestException("El presupuesto no puede ser negativo");
+        }
+        if (request.availableDates() == null) {
+            throw new InvalidRequestException("Indica tu disponibilidad");
+        }
+        boolean outsideWindow = request.availableDates().stream()
+                .anyMatch(day -> day == null || day.isBefore(trip.getWindowStart()) || day.isAfter(trip.getWindowEnd()));
+        if (outsideWindow) {
+            throw new InvalidRequestException("Hay fechas fuera de la ventana del viaje");
+        }
     }
 
     /** Validates the trip preferences and returns the trimmed origin city. */
