@@ -1,6 +1,6 @@
 # TripSync
 
-> Plan group trips without the chat chaos: everyone marks their free days and budget, TripSync turns it into a heatmap of the dates that work for the most people. No account needed to join.
+> Plan group trips without the chat chaos: everyone marks their free days and budget, TripSync finds the dates that work for the most people, proposes three destinations with an LLM, lets the group vote, and builds the itinerary and a shared checklist. No account needed to join.
 
 🌐 **[trip-sync-app-theta.vercel.app](https://trip-sync-app-theta.vercel.app)** · [Repository](https://github.com/albertsp/trip-sync)
 
@@ -52,8 +52,8 @@ Organizing a group trip usually means a chat thread where ten people argue about
 
 ## Features
 
-| | |
-|---|---|
+|                                                                                                                      |                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | ![Join form: pick your free days on the calendar, set your budget and travel preferences](docs/screenshots/join.png) | ![Summary page with the availability heatmap, best window, group budget and trip proposals](docs/screenshots/summary.png) |
 
 - **Availability heatmap**: the more people are free on a day, the warmer the cell. Hover a day to see how many can go.
@@ -62,6 +62,10 @@ Organizing a group trip usually means a chat thread where ten people argue about
 - **Shared budget**: the minimum budget of the group, so nobody is left out.
 - **No account to join**: only the creator signs in (Google). Participants just need the link.
 - **Trip preferences**: destination type, interests, origin city and notes, collected when joining.
+- **AI trip proposals and voting**: once at least three people have shared their preferences, the creator generates three destination proposals with cost breakdown. Each participant votes once (identified by their edit token); the creator closes the vote, and picks the winner if there is a tie.
+- **Itinerary and shared checklist**: for the winning proposal, the creator generates a day-by-day itinerary and seeds a checklist that participants can extend, claim and tick off.
+- **Anonymous by design**: the model only receives an anonymous group snapshot (no names, emails or ids); the best dates and the budget figures are computed in code, not by the model.
+- **Capped AI usage**: per-trip and daily generation limits, a cooldown between generations, and a minimum number of participants.
 - **AI trip proposals and voting**: the creator generates three destination proposals (consensus, budget and ambitious) with cost breakdown, fit score and who goes over budget. Each participant casts one vote, changeable until the creator closes it; a tie needs the creator's choice.
 - **Itinerary and shared checklist**: once the winner is confirmed, the creator builds the trip: a day-by-day itinerary with tips and a checklist where anyone who joined can claim, tick and add tasks.
 - **Light and dark themes** with a "Golden Hour" visual identity.
@@ -78,9 +82,12 @@ Organizing a group trip usually means a chat thread where ten people argue about
 2. They share the generated link with the group.
 3. Anyone who opens the link marks their available dates, budget and preferences, no account required.
 4. The summary page shows the heatmap, the best window and the group's minimum shared budget.
-5. When enough people have joined (3 by default), the creator generates three proposals. The code fixes the dates, currency and cost totals; the model only chooses destinations and writes the plan.
-6. Participants vote. The creator closes the vote (and breaks a tie if needed) to confirm the winner.
-7. The creator builds the trip: a second model call details the winner day by day and seeds the checklist.
+5. With three or more participants, the creator generates three destination proposals; everyone votes with their personal link.
+6. The creator closes the vote (and breaks any tie) to confirm the winning destination.
+7. The creator generates the itinerary, and the group shares a checklist with claimable tasks.
+8. When enough people have joined (3 by default), the creator generates three proposals. The code fixes the dates, currency and cost totals; the model only chooses destinations and writes the plan.
+9. Participants vote. The creator closes the vote (and breaks a tie if needed) to confirm the winner.
+10. The creator builds the trip: a second model call details the winner day by day and seeds the checklist.
 
 The model output is never trusted: it is read with strict JSON parsing, cleaned of links and markup, validated with Bean Validation and business rules (three distinct destinations, the right number of days, the group currency) and retried once with the error before answering `502`. See [AI proposals](#ai-proposals).
 
@@ -88,18 +95,19 @@ The model output is never trusted: it is read with strict JSON parsing, cleaned 
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19 + TypeScript 5 + Vite 7 |
-| Styling | Tailwind CSS v4 + custom design tokens |
-| Routing | React Router 7 |
-| Animations | Motion |
-| Backend | Spring Boot 4 (Java 21): Web, Data JPA, Security, OAuth2 Client |
-| Database | PostgreSQL 16 |
-| Auth | Google OAuth2 + cookie sessions + CSRF protection |
-| Testing | Vitest (unit), Playwright (E2E), JUnit 5 + Spring Boot Test (backend) |
-| CI | GitHub Actions |
-| Deployment | Vercel (frontend) + Fly.io (backend) |
+| Layer      | Technology                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------ |
+| Frontend   | React 19 + TypeScript 5 + Vite 7                                                                       |
+| Styling    | Tailwind CSS v4 + custom design tokens                                                                 |
+| Routing    | React Router 7                                                                                         |
+| Animations | Motion                                                                                                 |
+| Backend    | Spring Boot 4 (Java 21): Web, Data JPA, Validation, Security, OAuth2 Client                            |
+| Database   | PostgreSQL 16                                                                                          |
+| Auth       | Google OAuth2 + cookie sessions + CSRF protection                                                      |
+| Testing    | Vitest (unit), Playwright (E2E), JUnit 5 + Mockito + MockMvc on in-memory H2 (backend)                 |
+| CI         | GitHub Actions                                                                                         |
+| Deployment | Vercel (frontend) + Fly.io (backend)                                                                   |
+| AI         | Provider-agnostic LLM client (OpenAI-compatible API, Mistral by default) with strict output validation |
 
 ---
 
@@ -118,9 +126,7 @@ The model output is never trusted: it is read with strict JSON parsing, cleaned 
 
 1. The schema is created and extended by Hibernate (`ddl-auto: update`), so a deploy adds the new tables and columns on its own; new numeric columns carry a database default so they can be added to tables that already have rows.
 
-The browser only ever talks to the Vercel domain. A rewrite (`/backend/*` → Fly.io) proxies API calls, so the session and CSRF cookies are first-party.
-2. Authentication uses Google OAuth2 through Spring Security, with a cookie-based session and CSRF protection (`XSRF-TOKEN`) on state-changing requests.
-3. Only trip creation requires authentication. Joining a trip and viewing its summary are public actions gated by the shared link.
+The browser only ever talks to the Vercel domain. A rewrite (`/backend/*` → Fly.io) proxies API calls, so the session and CSRF cookies are first-party. 2. Authentication uses Google OAuth2 through Spring Security, with a cookie-based session and CSRF protection (`XSRF-TOKEN`) on state-changing requests. 3. Two kinds of caller: the **creator** acts with the Google session (create the trip, generate proposals, confirm, plan) and every one of those requests is CSRF-protected. **Participants** need no account: joining is public, and voting and checklist actions use their personal `X-Edit-Token` header. 4. The AI layer sits behind an `LlmClient` interface (OpenAI-compatible, fake for tests and E2E, disabled when no API key is set). `StructuredLlmService` parses the JSON and validates it against a schema and Bean Validation before anything is used.
 
 ---
 
@@ -171,23 +177,32 @@ The database container started in the setup step keeps running in the background
 
 **Backend** (see `backend/.env.example`)
 
-| Variable | Required | Description |
-|---|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth2 credentials. The app refuses to start without them. |
-| `DATABASE_URL` | No locally | JDBC URL. Defaults to `jdbc:postgresql://localhost:5432/tripsync_data`, matching `docker-compose.yml`. |
-| `DATABASE_USERNAME` / `DATABASE_PASSWORD` | No locally | Database credentials. Defaults match `docker-compose.yml`. |
-| `FRONTEND_URL` | No locally | Where the user lands after login. Default `http://localhost:5173`. |
-| `CORS_ALLOWED_ORIGINS` | No locally | Allowed frontend origins. Default `http://localhost:5173`. |
-| `OAUTH2_REDIRECT_URI` | Production | Public redirect URI registered in Google, e.g. `https://<frontend>/backend/login/oauth2/code/google`. |
-| `COOKIE_SAME_SITE` / `COOKIE_SECURE` | Production | Session cookie flags. `Lax` / `false` locally. |
-| `SPRING_PROFILES_ACTIVE` | Production | Set to `prod` to disable the test-only seed endpoint. |
+| Variable                                                             | Required        | Description                                                                                            |
+| -------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------ |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                          | Yes             | Google OAuth2 credentials. The app refuses to start without them.                                      |
+| `LLM_API_KEY`                                                        | For AI features | API key of the OpenAI-compatible provider. Without it the AI endpoints are disabled.                   |
+| `LLM_PROVIDER`                                                       | No              | `openai-compatible` (default) or `fake` (canned output, dev/E2E only).                                 |
+| `LLM_BASE_URL` / `LLM_MODEL`                                         | No              | Provider URL and model. Defaults: `https://api.mistral.ai/v1` and `mistral-small-latest`.              |
+| `LLM_MAX_OUTPUT_TOKENS` / `LLM_TIMEOUT_MS`                           | No              | Output cap (default 8192) and request timeout (default 45000).                                         |
+| `LLM_MAX_GENERATIONS_PER_TRIP` / `LLM_MAX_PLAN_GENERATIONS_PER_TRIP` | No              | Proposal generations (default 3) and itinerary generations (default 2) per trip.                       |
+| `LLM_COOLDOWN_SECONDS` / `LLM_MAX_GENERATIONS_PER_DAY`               | No              | Wait between generations (default 60) and global daily cap (default 50).                               |
+| `LLM_MIN_PARTICIPANTS`                                               | No              | Participants with preferences needed before generating (default 3).                                    |
+| `DATABASE_URL`                                                       | No locally      | JDBC URL. Defaults to `jdbc:postgresql://localhost:5432/tripsync_data`, matching `docker-compose.yml`. |
+| `DATABASE_USERNAME` / `DATABASE_PASSWORD`                            | No locally      | Database credentials. Defaults match `docker-compose.yml`.                                             |
+| `FRONTEND_URL`                                                       | No locally      | Where the user lands after login. Default `http://localhost:5173`.                                     |
+| `CORS_ALLOWED_ORIGINS`                                               | No locally      | Allowed frontend origins. Default `http://localhost:5173`.                                             |
+| `OAUTH2_REDIRECT_URI`                                                | Production      | Public redirect URI registered in Google, e.g. `https://<frontend>/backend/login/oauth2/code/google`.  |
+| `COOKIE_SAME_SITE` / `COOKIE_SECURE`                                 | Production      | Session cookie flags. `Lax` / `false` locally.                                                         |
+| `SPRING_PROFILES_ACTIVE`                                             | Production      | Set to `prod` to disable the test-only seed endpoint.                                                  |
+
+> The model receives an anonymous snapshot: no names, emails or ids. Origin city and free-text notes are sent, so use fictional data on free-tier providers.
 
 **Frontend** (see `frontend/.env.example`)
 
-| Variable | Description |
-|---|---|
+| Variable            | Description                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------- |
 | `VITE_API_BASE_URL` | Base URL of the backend. `http://localhost:8080` locally, `/backend` in production. |
-| `VITE_APP_BASE_URL` | Public URL of the app, used to build share links. |
+| `VITE_APP_BASE_URL` | Public URL of the app, used to build share links.                                   |
 
 > Never commit real secrets. Use the `.env.example` files as templates and keep `.env` files out of git.
 
@@ -195,18 +210,18 @@ The database container started in the setup step keeps running in the background
 
 Generation uses any OpenAI-compatible `/chat/completions` API with JSON-schema structured outputs (Mistral, Groq, Cerebras, OpenRouter): only the variables below change.
 
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_API_KEY` | empty | Provider key. **Without it generation is disabled** (`503`) and the rest of the app works normally. |
-| `LLM_PROVIDER` | `openai-compatible` | Use `fake` for canned proposals in development and tests. |
-| `LLM_BASE_URL` | `https://api.mistral.ai/v1` | Provider base URL. |
-| `LLM_MODEL` | `ministral-14b-latest` | Chosen after benchmarking the models available on a free Mistral account. |
-| `LLM_TIMEOUT_MS` | `60000` | Read timeout per call. A call usually takes 7-25 s. |
-| `LLM_MAX_GENERATIONS_PER_TRIP` | `3` | Proposal generations per trip. |
-| `LLM_MAX_PLAN_GENERATIONS_PER_TRIP` | `2` | Itinerary generations per trip. |
-| `LLM_COOLDOWN_SECONDS` | `60` | Wait between generations of the same trip. |
-| `LLM_MAX_GENERATIONS_PER_DAY` | `50` | Global daily cap on model calls (proposals and plans). |
-| `LLM_MIN_PARTICIPANTS` | `3` | Participants with preferences needed to generate. |
+| Variable                            | Default                     | Description                                                                                         |
+| ----------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
+| `LLM_API_KEY`                       | empty                       | Provider key. **Without it generation is disabled** (`503`) and the rest of the app works normally. |
+| `LLM_PROVIDER`                      | `openai-compatible`         | Use `fake` for canned proposals in development and tests.                                           |
+| `LLM_BASE_URL`                      | `https://api.mistral.ai/v1` | Provider base URL.                                                                                  |
+| `LLM_MODEL`                         | `ministral-14b-latest`      | Chosen after benchmarking the models available on a free Mistral account.                           |
+| `LLM_TIMEOUT_MS`                    | `60000`                     | Read timeout per call. A call usually takes 7-25 s.                                                 |
+| `LLM_MAX_GENERATIONS_PER_TRIP`      | `3`                         | Proposal generations per trip.                                                                      |
+| `LLM_MAX_PLAN_GENERATIONS_PER_TRIP` | `2`                         | Itinerary generations per trip.                                                                     |
+| `LLM_COOLDOWN_SECONDS`              | `60`                        | Wait between generations of the same trip.                                                          |
+| `LLM_MAX_GENERATIONS_PER_DAY`       | `50`                        | Global daily cap on model calls (proposals and plans).                                              |
+| `LLM_MIN_PARTICIPANTS`              | `3`                         | Participants with preferences needed to generate.                                                   |
 
 Things worth knowing:
 
@@ -219,24 +234,33 @@ Things worth knowing:
 
 ## API overview
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `POST` | `/trips` | Create a trip | Google session |
-| `GET` | `/trips/{id}` | Get a trip's data | Public (link) |
-| `POST` | `/trips/{id}/participants` | Join with dates, budget and preferences | Public (link) |
-| `GET` | `/trips/{id}/summary` | Availability per day, participant count and group budget | Public (link) |
-| `GET` | `/trips/{id}/proposals` | Latest generation with votes (and your own vote with `X-Edit-Token`) | Public (link) |
-| `POST` | `/trips/{id}/proposals` | Generate three proposals; moves the trip to `VOTING` | Creator session + CSRF |
-| `PUT` | `/trips/{id}/votes` | Cast or change your vote | `X-Edit-Token` |
-| `POST` | `/trips/{id}/confirm` | Close the vote and fix the winner | Creator session + CSRF |
-| `POST` | `/trips/{id}/plan` | Detail the winner and seed the checklist; moves the trip to `PLANNING` | Creator session + CSRF |
-| `GET` | `/trips/{id}/tasks` | The checklist | Public (link) |
-| `POST` | `/trips/{id}/tasks` | Add a task | `X-Edit-Token` |
-| `PATCH` | `/trips/{id}/tasks/{taskId}` | Claim, release or tick a task | `X-Edit-Token` |
-| `GET` | `/api/me` | The authenticated user, or `401` | Session |
-| `GET` | `/api/csrf` | Primes the `XSRF-TOKEN` cookie for the SPA | Public |
-| `GET` | `/ping` | Health check | Public |
-| `POST` | `/test/trips` | Seed a trip for E2E tests (disabled with the `prod` profile) | Non-production only |
+| Method         | Endpoint                     | Description                                                            | Auth                   |
+| -------------- | ---------------------------- | ---------------------------------------------------------------------- | ---------------------- |
+| `POST`         | `/trips`                     | Create a trip                                                          | Google session         |
+| `GET`          | `/trips/{id}`                | Get a trip's data                                                      | Public (link)          |
+| `POST`         | `/trips/{id}/participants`   | Join with dates, budget and preferences                                | Public (link)          |
+| `GET`          | `/trips/{id}/summary`        | Availability per day, participant count and group budget               | Public (link)          |
+| `GET`          | `/trips/{id}/proposals`      | Latest generation with votes (and your own vote with `X-Edit-Token`)   | Public (link)          |
+| `POST`         | `/trips/{id}/proposals`      | Generate three proposals; moves the trip to `VOTING`                   | Creator session + CSRF |
+| `PUT`          | `/trips/{id}/votes`          | Cast or change your vote                                               | `X-Edit-Token`         |
+| `POST`         | `/trips/{id}/confirm`        | Close the vote and fix the winner                                      | Creator session + CSRF |
+| `POST`         | `/trips/{id}/plan`           | Detail the winner and seed the checklist; moves the trip to `PLANNING` | Creator session + CSRF |
+| `GET`          | `/trips/{id}/tasks`          | The checklist                                                          | Public (link)          |
+| `POST`         | `/trips/{id}/tasks`          | Add a task                                                             | `X-Edit-Token`         |
+| `PATCH`        | `/trips/{id}/tasks/{taskId}` | Claim, release or tick a task                                          | `X-Edit-Token`         |
+| `GET`          | `/api/me`                    | The authenticated user, or `401`                                       | Session                |
+| `GET`          | `/api/csrf`                  | Primes the `XSRF-TOKEN` cookie for the SPA                             | Public                 |
+| `GET`          | `/ping`                      | Health check                                                           | Public                 |
+| `POST`         | `/test/trips`                | Seed a trip for E2E tests (disabled with the `prod` profile)           | Non-production only    |
+| `GET`          | `/trips/{id}/proposals`      | Latest proposals, plus the caller's vote if `X-Edit-Token` is sent     | Public (link)          |
+| `POST`         | `/trips/{id}/proposals`      | Generate three proposals with the LLM                                  | Creator session + CSRF |
+| `PUT`          | `/trips/{id}/votes`          | Vote for a proposal                                                    | `X-Edit-Token`         |
+| `POST`         | `/trips/{id}/confirm`        | Close the vote and confirm the winner (creator picks on a tie)         | Creator session + CSRF |
+| `POST`         | `/trips/{id}/plan`           | Generate the itinerary and seed the checklist                          | Creator session + CSRF |
+| `GET` / `POST` | `/trips/{id}/tasks`          | List or add checklist tasks                                            | `X-Edit-Token`         |
+| `PATCH`        | `/trips/{id}/tasks/{taskId}` | Claim, release or tick a task                                          | `X-Edit-Token`         |
+
+Errors return a JSON body from a global exception handler: `400` invalid input, `401` no session, `403` not allowed, `404` not found, `409` wrong trip state, `429` generation limits (with the wait time), `502` invalid model output, `503` provider unavailable.
 
 Errors are JSON bodies from a global exception handler: `400` invalid input, `401` unknown participant or no session, `403` not the creator, `409` wrong state (vote closed, tie), `422` too few participants, `429` generation limit or cooldown (with `Retry-After`), `502` invalid model output, `503` AI not configured or daily cap reached.
 
@@ -247,8 +271,10 @@ Trip status flows `OPEN` → `VOTING` → `CONFIRMED` → `PLANNING`.
 ## Testing and CI
 
 ```bash
+# Backend (in-memory H2, no Docker needed)
 # Backend: tests run on in-memory H2, no Docker needed
 cd backend
+./mvnw verify
 GOOGLE_CLIENT_ID=dummy GOOGLE_CLIENT_SECRET=dummy ./mvnw verify
 # Same feature against real PostgreSQL (docker compose up -d):
 POSTGRES_TEST_URL=jdbc:postgresql://localhost:5432/tripsync_data ./mvnw test -Dtest=PostgresFlowTest
@@ -278,7 +304,10 @@ With `LLM_PROVIDER=fake`, `POST /test/trips/{id}/proposals` generates proposals 
 
 The frontend has unit tests for the pure logic (availability aggregation, form validation, proposal formatting and error mapping) and Playwright E2E specs for the landing, the join flow, the calendar interactions and the proposals voting UI. Most E2E specs mock the API so they run without a backend; `join-trip.spec.ts` runs against the real one.
 
-**Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request with three jobs. *Backend* builds and tests with Maven; the unit and API tests run on H2, and `PostgresFlowTest` runs the whole feature against the PostgreSQL service. *Frontend* runs ESLint, the type-checked production build and Vitest. *E2E* starts the real backend and runs the Playwright suite in Chromium, uploading the report when it fails. No secrets are required. Dependabot keeps Maven, npm, Docker and Actions dependencies up to date.
+The backend has about 90 tests: unit tests with Mockito (participants, trips, the LLM client and structured-output service), parser tests for the model output, and API flow tests that go through the real security and CSRF configuration with a fake LLM (proposals, voting, confirmation, limits, itinerary and checklist). The frontend has Vitest unit tests for the pure logic (availability, forms, proposal formatting, error mapping, checklist) and Playwright E2E specs for the landing, the join flow, the calendar, the proposals voting UI and the itinerary. Most E2E specs mock the API; `join-trip.spec.ts` runs against the real one.
+
+**Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request with three jobs. _Backend_ builds and runs the Maven tests. _Frontend_ runs ESLint, the type-checked production build and Vitest. _E2E_ starts the real backend against a PostgreSQL service and runs the Playwright suite in Chromium, uploading the report when it fails. No secrets are required. Dependabot keeps Maven, npm, Docker and Actions dependencies up to date.
+**Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request with three jobs. _Backend_ builds and tests with Maven; the unit and API tests run on H2, and `PostgresFlowTest` runs the whole feature against the PostgreSQL service. _Frontend_ runs ESLint, the type-checked production build and Vitest. _E2E_ starts the real backend and runs the Playwright suite in Chromium, uploading the report when it fails. No secrets are required. Dependabot keeps Maven, npm, Docker and Actions dependencies up to date.
 
 ---
 
@@ -291,9 +320,11 @@ trip-sync/
 │   ├── ISSUE_TEMPLATE/ · PULL_REQUEST_TEMPLATE.md · dependabot.yml
 ├── backend/
 │   ├── src/main/java/com/albertsp/tripsync/backend/
-│   │   ├── config/                    # Security (OAuth2, CSRF), CORS
+│   │   ├── config/                    # Security (OAuth2, CSRF), CORS, LLM wiring
 │   │   ├── controllers/               # HTTP endpoints (+ test-only seed controller)
 │   │   ├── service/                   # Business logic and validation
+│   │   │   ├── llm/                   # LlmClient (OpenAI-compatible, fake, disabled), structured output, parsers
+│   │   │   └── proposal/              # Group snapshot, best window, prompt builders
 │   │   ├── repositories/              # Spring Data JPA
 │   │   ├── domain/                    # JPA entities and enums
 │   │   ├── dtos/                      # API request/response contracts
@@ -366,6 +397,18 @@ E2E tests need a trip owned by a signed-in user, and automating Google login is 
 **A purpose-built calendar**
 Off-the-shelf date pickers don't paint ranges by dragging or render a heatmap. The calendar is custom: pointer events with a separate touch path (so scrolling the page doesn't paint days), roving keyboard focus, and the same grid reused read-only for the heatmap.
 
+**Two ways to authenticate, one CSRF rule**
+Creator actions (generate, confirm, plan) act with the session cookie, so they stay under CSRF protection. Participant actions (votes, checklist) authenticate with the `X-Edit-Token` header, which a browser never attaches on its own, so CSRF does not apply and those routes are excluded explicitly. Creator endpoints also answer `401` instead of the OAuth redirect, which a `fetch()` from the SPA cannot follow.
+
+**The model proposes, the code decides**
+The best dates, currency and budget figures are computed in code (`GroupSnapshot`, `BestWindowCalculator`) and handed to the model as facts. The model only writes the proposals and the itinerary around them, and its JSON is validated against a schema and Bean Validation before it is used; invalid output returns `502` instead of reaching the database.
+
+**LLM behind an interface**
+`LlmClient` has an OpenAI-compatible implementation, a fake one for tests and E2E (no key, no cost, deterministic) and a disabled one when no key is configured. Switching provider is configuration, not code.
+
+**Bounded AI cost and privacy**
+Each trip has a generation cap, there is a cooldown and a global daily cap, and nothing is generated below a minimum number of participants. The prompt gets an anonymous snapshot (no names, emails or ids) and wraps free text in delimiters so participant notes are treated as data, not instructions.
+
 ---
 
 ## Challenges and lessons learned
@@ -380,20 +423,23 @@ Trip creation needed Google sign-in, but a full login screen would work against 
 Login worked locally and failed in production: Spring built the OAuth redirect URI from the internal `http://` host Fly forwarded, not the public one. The fix was forwarded-header handling plus an explicit, configurable `redirect-uri` registered verbatim in Google. A failed login also lands on the backend's own domain, which is a known rough edge of the flow.
 
 **Flaky drag test caused by animations**
-An E2E test that drags across calendar days passed locally and failed in CI: the cells were still mid-entrance-animation when the mouse went down. Waiting on `document.getAnimations()` wasn't enough because the animation library doesn't always expose its animations there; a Playwright *trial click* (which waits for the element to stop moving) fixed it without arbitrary sleeps.
+An E2E test that drags across calendar days passed locally and failed in CI: the cells were still mid-entrance-animation when the mouse went down. Waiting on `document.getAnimations()` wasn't enough because the animation library doesn't always expose its animations there; a Playwright _trial click_ (which waits for the element to stop moving) fixed it without arbitrary sleeps.
 
 ---
 
 ## Troubleshooting
 
-| Problem | Likely cause and fix |
-|---|---|
-| Backend fails on startup with a placeholder error for `GOOGLE_CLIENT_ID` | The variable isn't set. Export `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (dummy values are fine to run the tests). |
-| `Connection refused` on port 5432 | The database container isn't running: `docker compose up -d`. |
-| `403` on `POST /trips` | The CSRF cookie wasn't primed or the request lacks `credentials: 'include'`. Check that `/api/csrf` was called first. |
-| Google login: `redirect_uri_mismatch` | The redirect URI registered in Google doesn't match the one the backend builds. In production set `OAUTH2_REDIRECT_URI` to the exact registered value. |
-| Logged in but the session is lost after redirect | Cross-site cookie blocked. Locally keep `COOKIE_SAME_SITE=Lax`; in production use the `/backend/*` proxy with `None` + `Secure`. |
-| `join-trip.spec.ts` fails with connection errors | That spec needs the real backend running on `:8080`; the others mock the API. |
+| Problem                                                                  | Likely cause and fix                                                                                                                                   |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Backend fails on startup with a placeholder error for `GOOGLE_CLIENT_ID` | The variable isn't set. Export `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (dummy values are fine to run the tests).                                 |
+| `Connection refused` on port 5432                                        | The database container isn't running: `docker compose up -d`.                                                                                          |
+| `403` on `POST /trips`                                                   | The CSRF cookie wasn't primed or the request lacks `credentials: 'include'`. Check that `/api/csrf` was called first.                                  |
+| Google login: `redirect_uri_mismatch`                                    | The redirect URI registered in Google doesn't match the one the backend builds. In production set `OAUTH2_REDIRECT_URI` to the exact registered value. |
+| Logged in but the session is lost after redirect                         | Cross-site cookie blocked. Locally keep `COOKIE_SAME_SITE=Lax`; in production use the `/backend/*` proxy with `None` + `Secure`.                       |
+| `join-trip.spec.ts` fails with connection errors                         | That spec needs the real backend running on `:8080`; the others mock the API.                                                                          |
+| AI endpoints fail or are unavailable (`503`)                             | `LLM_API_KEY` is not set, or the provider is down. For local work use `LLM_PROVIDER=fake`.                                                             |
+| `429` when generating proposals or the plan                              | A per-trip cap, the cooldown or the daily cap was hit. See the `LLM_*` variables.                                                                      |
+| "Faltan participantes con preferencias"                                  | Generating needs at least `LLM_MIN_PARTICIPANTS` (3) participants who filled in their preferences.                                                     |
 
 ---
 
@@ -401,12 +447,18 @@ An E2E test that drags across calendar days passed locally and failed in CI: the
 
 - [x] Availability heatmap, best window and shared budget
 - [x] Trip preferences and a redesigned UI (Golden Hour, light/dark)
+- [x] Trip proposals UI with voting and creator controls
+- [x] Proposals backend: LLM generation with validated output, voting, confirmation
+- [x] Detailed itinerary and shared checklist for the winning proposal
+- [x] Backend tests for services and API flows
 - [x] Trip proposals UI with voting and creator controls (against a typed API contract)
 - [x] AI proposals: generation, voting, confirmation, with limits and strict output validation
 - [x] Detailed itinerary and shared checklist for the winning proposal
 - [x] Backend tests: unit, API flows on H2 and the same flow on PostgreSQL in CI
 - [ ] Close a trip (the `CLOSED` status is modeled; the endpoint is missing)
 - [ ] Edit already-submitted availability through the participant's edit token
+- [ ] Group budget per currency (today the summary minimum ignores the currency)
+- [ ] Versioned database migrations (Flyway) instead of `ddl-auto: update`
 - [ ] Recovery link for participants who lose their edit token (vote and tasks are tied to it)
 - [ ] Booking links and real prices for the confirmed trip
 
