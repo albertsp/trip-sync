@@ -1,0 +1,29 @@
+# Used by @ActiveProfiles("test"): in-memory H2 so tests need neither Docker nor Postgres.
+# Each Spring context gets its own database (random name) so cached contexts never drop each other's tables.
+spring:
+  datasource:
+    url: jdbc:h2:mem:${random.uuid};MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=DAY
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test
+            client-secret: test
+
+app:
+  llm:
+    provider: fake
+    cooldown-seconds: 0
+    max-generations-per-trip: 5
+    max-generations-per-day: 1000
