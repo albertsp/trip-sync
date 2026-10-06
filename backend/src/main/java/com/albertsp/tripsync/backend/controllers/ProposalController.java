@@ -61,6 +61,11 @@ public class ProposalController {
         return proposalService.confirm(tripId, callerId(principal), chosen);
     }
 
+    @PostMapping("/trips/{tripId}/plan")
+    public ProposalsResponse plan(@PathVariable UUID tripId, @AuthenticationPrincipal OAuth2User principal) {
+        return proposalService.plan(tripId, callerId(principal));
+    }
+
     /** Session users get 401 here instead of an OAuth redirect, which a fetch() from the SPA cannot follow. */
     private UUID callerId(OAuth2User principal) {
         if (principal == null) {

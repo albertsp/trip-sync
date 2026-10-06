@@ -35,6 +35,11 @@ public class TripProposal {
     @Column(length = 30000)
     private String detailPayload;
 
+    /** When the detail was last generated, and how many times (cap and cooldown for POST /plan). */
+    private LocalDateTime detailGeneratedAt;
+
+    private int planGenerations;
+
     private String model;
 
     private String inputsHash;
@@ -102,6 +107,22 @@ public class TripProposal {
 
     public void setDetailPayload(String detailPayload) {
         this.detailPayload = detailPayload;
+    }
+
+    public LocalDateTime getDetailGeneratedAt() {
+        return detailGeneratedAt;
+    }
+
+    public void setDetailGeneratedAt(LocalDateTime detailGeneratedAt) {
+        this.detailGeneratedAt = detailGeneratedAt;
+    }
+
+    public int getPlanGenerations() {
+        return planGenerations;
+    }
+
+    public void setPlanGenerations(int planGenerations) {
+        this.planGenerations = planGenerations;
     }
 
     public String getModel() {

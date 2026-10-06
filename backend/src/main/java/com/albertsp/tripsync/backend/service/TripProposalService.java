@@ -4,6 +4,7 @@ import com.albertsp.tripsync.backend.domain.Participant;
 import com.albertsp.tripsync.backend.domain.ProposalVote;
 import com.albertsp.tripsync.backend.domain.Trip;
 import com.albertsp.tripsync.backend.domain.TripProposal;
+import com.albertsp.tripsync.backend.domain.TripTask;
 import com.albertsp.tripsync.backend.domain.TripStatus;
 import com.albertsp.tripsync.backend.dtos.ProposalItemResponse;
 import com.albertsp.tripsync.backend.dtos.ProposalsResponse;
@@ -19,16 +20,22 @@ import com.albertsp.tripsync.backend.repositories.AvailabilityRepository;
 import com.albertsp.tripsync.backend.repositories.ParticipantRepository;
 import com.albertsp.tripsync.backend.repositories.ProposalVoteRepository;
 import com.albertsp.tripsync.backend.repositories.TripProposalRepository;
+import com.albertsp.tripsync.backend.repositories.TripTaskRepository;
 import com.albertsp.tripsync.backend.repositories.TripRepository;
 import com.albertsp.tripsync.backend.service.llm.LlmProperties;
 import com.albertsp.tripsync.backend.service.llm.StructuredLlmService;
 import com.albertsp.tripsync.backend.service.llm.StructuredResult;
+import com.albertsp.tripsync.backend.service.llm.plan.PlanDetailDto;
+import com.albertsp.tripsync.backend.service.llm.plan.PlanDto;
+import com.albertsp.tripsync.backend.service.llm.plan.PlanParser;
+import com.albertsp.tripsync.backend.service.llm.plan.PlanSchemas;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalDto;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalSchemas;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalsContext;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalsDto;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalsParser;
 import com.albertsp.tripsync.backend.service.proposal.GroupSnapshot;
+import com.albertsp.tripsync.backend.service.proposal.PlanPromptBuilder;
 import com.albertsp.tripsync.backend.service.proposal.ProposalPromptBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +50,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,12 +74,15 @@ public class TripProposalService {
     private final ProposalVoteRepository voteRepository;
     private final StructuredLlmService llm;
     private final ProposalsParser parser;
+    private final PlanParser planParser;
+    private final TripTaskRepository taskRepository;
     private final LlmProperties properties;
     private final Clock clock;
 
     public TripProposalService(TripRepository tripRepository, ParticipantRepository participantRepository,
                                AvailabilityRepository availabilityRepository, TripProposalRepository proposalRepository,
-                               ProposalVoteRepository voteRepository, StructuredLlmService llm, ProposalsParser parser,
+                               ProposalVoteRepository voteRepository, TripTaskRepository taskRepository,
+                               StructuredLlmService llm, ProposalsParser parser, PlanParser planParser,
                                LlmProperties properties, Clock clock) {
         this.tripRepository = tripRepository;
         this.participantRepository = participantRepository;
@@ -77,6 +91,8 @@ public class TripProposalService {
         this.voteRepository = voteRepository;
         this.llm = llm;
         this.parser = parser;
+        this.planParser = planParser;
+        this.taskRepository = taskRepository;
         this.properties = properties;
         this.clock = clock;
     }
@@ -196,6 +212,84 @@ public class TripProposalService {
         return view(trip, null);
     }
 
+    /**
+     * Details the winning proposal (full itinerary and tips) and seeds the shared checklist with the suggested tasks.
+     * Callable again while within the per-trip cap: it replaces the detail and the suggestions nobody has touched.
+     */
+    @Transactional
+    public ProposalsResponse plan(UUID tripId, UUID callerUserId) {
+        Trip trip = lockTrip(tripId);
+        requireCreator(trip, callerUserId);
+
+        if (!llm.isEnabled()) {
+            throw new LlmUnavailableException("La generación con IA no está configurada");
+        }
+        if (trip.getStatus() != TripStatus.CONFIRMED && trip.getStatus() != TripStatus.PLANNING) {
+            throw new ConflictException("Primero cierra la votación para elegir el viaje");
+        }
+        TripProposal winner = proposalRepository.findFirstByTripIdAndWinnerTrueOrderByGenerationDesc(tripId)
+                .orElseThrow(() -> new ConflictException("Todavía no hay una propuesta ganadora"));
+
+        if (winner.getPlanGenerations() >= properties.maxPlanGenerationsPerTrip()) {
+            throw new TooManyRequestsException("Has alcanzado el límite de generaciones del plan de este viaje");
+        }
+        if (winner.getDetailGeneratedAt() != null) {
+            long remaining = properties.cooldownSeconds()
+                    - ChronoUnit.SECONDS.between(winner.getDetailGeneratedAt(), LocalDateTime.now(clock));
+            if (remaining > 0) {
+                throw new TooManyRequestsException("Espera un momento antes de volver a generar el plan", remaining);
+            }
+        }
+        enforceDailyCap();
+
+        ProposalDto destination = readPayload(winner);
+        int days = (int) ChronoUnit.DAYS.between(winner.getBestStart(), winner.getBestEnd()) + 1;
+        GroupSnapshot group = GroupSnapshot.of(trip, participantRepository.findByTripId(tripId),
+                availabilityRepository.findByParticipantTripId(tripId));
+
+        StructuredResult<PlanDto> result = llm.complete(
+                PlanPromptBuilder.SYSTEM,
+                PlanPromptBuilder.user(group, destination, winner.getBestStart(), winner.getBestEnd(), days),
+                PlanSchemas.PLAN,
+                raw -> planParser.parse(raw, days));
+        log.info("Generated plan for trip {} ({} attempt(s), {} tokens)", tripId, result.attempts(), result.usage().totalTokens());
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        winner.setDetailPayload(PAYLOAD_MAPPER.writeValueAsString(PlanDetailDto.of(result.value())));
+        winner.setDetailGeneratedAt(now);
+        winner.setPlanGenerations(winner.getPlanGenerations() + 1);
+        proposalRepository.save(winner);
+
+        seedTasks(trip, result.value().tasks(), now);
+
+        trip.setStatus(TripStatus.PLANNING);
+        tripRepository.save(trip);
+        return view(trip, null);
+    }
+
+    /** Drops earlier suggestions nobody claimed or ticked, then adds the new ones that are not already on the list. */
+    private void seedTasks(Trip trip, List<String> titles, LocalDateTime now) {
+        List<TripTask> existing = taskRepository.findByTripIdOrderByCreatedAtAscIdAsc(trip.getId());
+        List<TripTask> untouched = existing.stream()
+                .filter(t -> t.isSuggested() && t.getAssignee() == null && !t.isDone())
+                .toList();
+        taskRepository.deleteAll(untouched);
+
+        Set<String> kept = new HashSet<>();
+        existing.stream().filter(t -> !untouched.contains(t)).forEach(t -> kept.add(t.getTitle().toLowerCase(Locale.ROOT)));
+
+        for (String title : titles) {
+            if (kept.add(title.toLowerCase(Locale.ROOT))) {
+                TripTask task = new TripTask();
+                task.setTrip(trip);
+                task.setTitle(title);
+                task.setSuggested(true);
+                task.setCreatedAt(now);
+                taskRepository.save(task);
+            }
+        }
+    }
+
     private TripProposal singleLeader(UUID tripId) {
         int latest = proposalRepository.findLatestGeneration(tripId);
         List<TripProposal> proposals = proposalRepository.findByTripIdAndGenerationOrderByAngle(tripId, latest);
@@ -222,8 +316,14 @@ public class TripProposalService {
                 throw new TooManyRequestsException("Espera un momento antes de volver a generar", remaining);
             }
         }
+        enforceDailyCap();
+    }
+
+    /** Proposal and plan generations share the daily budget of model calls. */
+    private void enforceDailyCap() {
         LocalDateTime startOfDay = LocalDateTime.now(clock).toLocalDate().atStartOfDay();
-        if (proposalRepository.countGenerationsSince(startOfDay) >= properties.maxGenerationsPerDay()) {
+        long usedToday = proposalRepository.countGenerationsSince(startOfDay) + proposalRepository.countPlansSince(startOfDay);
+        if (usedToday >= properties.maxGenerationsPerDay()) {
             throw new LlmUnavailableException("Se ha alcanzado el límite diario de generaciones con IA");
         }
     }
@@ -285,13 +385,16 @@ public class TripProposalService {
                 proposals.stream().map(p -> toItem(p, votes.getOrDefault(p.getId(), 0))).toList());
     }
 
-    private ProposalItemResponse toItem(TripProposal p, int votes) {
-        ProposalDto dto;
+    private static ProposalDto readPayload(TripProposal p) {
         try {
-            dto = PAYLOAD_MAPPER.readValue(p.getPayload(), ProposalDto.class);
+            return PAYLOAD_MAPPER.readValue(p.getPayload(), ProposalDto.class);
         } catch (JacksonException e) {
             throw new IllegalStateException("Stored proposal " + p.getId() + " cannot be read", e);
         }
+    }
+
+    private ProposalItemResponse toItem(TripProposal p, int votes) {
+        ProposalDto dto = readPayload(p);
         return new ProposalItemResponse(
                 p.getId(), p.getAngle(), dto.destination(), dto.country(), dto.fitScore(), dto.whyFits(),
                 dto.tradeoffs(), dto.days(), dto.costBreakdown(), p.getEstimatedCostPerPerson(), p.getCurrency(),

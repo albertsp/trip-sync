@@ -21,4 +21,10 @@ public interface TripProposalRepository extends JpaRepository<TripProposal, UUID
     /** Generations created since {@code since}, counting one row (CONSENSUS) per generation. */
     @Query("select count(p) from TripProposal p where p.angle = com.albertsp.tripsync.backend.domain.ProposalAngle.CONSENSUS and p.createdAt >= :since")
     long countGenerationsSince(LocalDateTime since);
+
+    Optional<TripProposal> findFirstByTripIdAndWinnerTrueOrderByGenerationDesc(UUID tripId);
+
+    /** Plan (detail) generations since {@code since}: they spend model quota like proposal generations. */
+    @Query("select count(p) from TripProposal p where p.detailGeneratedAt >= :since")
+    long countPlansSince(LocalDateTime since);
 }
