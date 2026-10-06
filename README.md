@@ -62,7 +62,8 @@ Organizing a group trip usually means a chat thread where ten people argue about
 - **Shared budget**: the minimum budget of the group, so nobody is left out.
 - **No account to join**: only the creator signs in (Google). Participants just need the link.
 - **Trip preferences**: destination type, interests, origin city and notes, collected when joining.
-- **Trip proposals and voting**: three destination proposals with cost breakdown and fit score, one vote per participant, creator controls to regenerate and close the vote. The interface is complete; see the [Roadmap](#roadmap) for the backend status.
+- **AI trip proposals and voting**: the creator generates three destination proposals (consensus, budget and ambitious) with cost breakdown, fit score and who goes over budget. Each participant casts one vote, changeable until the creator closes it; a tie needs the creator's choice.
+- **Itinerary and shared checklist**: once the winner is confirmed, the creator builds the trip: a day-by-day itinerary with tips and a checklist where anyone who joined can claim, tick and add tasks.
 - **Light and dark themes** with a "Golden Hour" visual identity.
 
 <p align="center">
@@ -77,6 +78,11 @@ Organizing a group trip usually means a chat thread where ten people argue about
 2. They share the generated link with the group.
 3. Anyone who opens the link marks their available dates, budget and preferences, no account required.
 4. The summary page shows the heatmap, the best window and the group's minimum shared budget.
+5. When enough people have joined (3 by default), the creator generates three proposals. The code fixes the dates, currency and cost totals; the model only chooses destinations and writes the plan.
+6. Participants vote. The creator closes the vote (and breaks a tie if needed) to confirm the winner.
+7. The creator builds the trip: a second model call details the winner day by day and seeds the checklist.
+
+The model output is never trusted: it is read with strict JSON parsing, cleaned of links and markup, validated with Bean Validation and business rules (three distinct destinations, the right number of days, the group currency) and retried once with the error before answering `502`. See [AI proposals](#ai-proposals).
 
 ---
 
@@ -110,7 +116,9 @@ Organizing a group trip usually means a chat thread where ten people argue about
                                           └────────────────┘
 ```
 
-1. The browser only ever talks to the Vercel domain. A rewrite (`/backend/*` → Fly.io) proxies API calls, so the session and CSRF cookies are first-party.
+1. The schema is created and extended by Hibernate (`ddl-auto: update`), so a deploy adds the new tables and columns on its own; new numeric columns carry a database default so they can be added to tables that already have rows.
+
+The browser only ever talks to the Vercel domain. A rewrite (`/backend/*` → Fly.io) proxies API calls, so the session and CSRF cookies are first-party.
 2. Authentication uses Google OAuth2 through Spring Security, with a cookie-based session and CSRF protection (`XSRF-TOKEN`) on state-changing requests.
 3. Only trip creation requires authentication. Joining a trip and viewing its summary are public actions gated by the shared link.
 
@@ -183,6 +191,30 @@ The database container started in the setup step keeps running in the background
 
 > Never commit real secrets. Use the `.env.example` files as templates and keep `.env` files out of git.
 
+### AI proposals
+
+Generation uses any OpenAI-compatible `/chat/completions` API with JSON-schema structured outputs (Mistral, Groq, Cerebras, OpenRouter): only the variables below change.
+
+| Variable | Default | Description |
+|---|---|---|
+| `LLM_API_KEY` | empty | Provider key. **Without it generation is disabled** (`503`) and the rest of the app works normally. |
+| `LLM_PROVIDER` | `openai-compatible` | Use `fake` for canned proposals in development and tests. |
+| `LLM_BASE_URL` | `https://api.mistral.ai/v1` | Provider base URL. |
+| `LLM_MODEL` | `ministral-14b-latest` | Chosen after benchmarking the models available on a free Mistral account. |
+| `LLM_TIMEOUT_MS` | `60000` | Read timeout per call. A call usually takes 7-25 s. |
+| `LLM_MAX_GENERATIONS_PER_TRIP` | `3` | Proposal generations per trip. |
+| `LLM_MAX_PLAN_GENERATIONS_PER_TRIP` | `2` | Itinerary generations per trip. |
+| `LLM_COOLDOWN_SECONDS` | `60` | Wait between generations of the same trip. |
+| `LLM_MAX_GENERATIONS_PER_DAY` | `50` | Global daily cap on model calls (proposals and plans). |
+| `LLM_MIN_PARTICIPANTS` | `3` | Participants with preferences needed to generate. |
+
+Things worth knowing:
+
+- Generating again with the same inputs returns the existing proposals and costs nothing.
+- Participant data is sent to the model **without names or emails**, one anonymous row each, and free text is delimited as data. See the in-app privacy page (`/privacidad`).
+- Mistral's free plan may train on what it receives: use fictional data while developing. Rate limits are set per model, so a key can chat with one model and get `429` on another.
+- `RealProviderSmokeTest` is a manual benchmark against the real provider (skipped without `LLM_API_KEY`): `set -a; source backend/.env.local; set +a; cd backend && ./mvnw test -Dtest=RealProviderSmokeTest`.
+
 ---
 
 ## API overview
@@ -193,21 +225,33 @@ The database container started in the setup step keeps running in the background
 | `GET` | `/trips/{id}` | Get a trip's data | Public (link) |
 | `POST` | `/trips/{id}/participants` | Join with dates, budget and preferences | Public (link) |
 | `GET` | `/trips/{id}/summary` | Availability per day, participant count and group budget | Public (link) |
+| `GET` | `/trips/{id}/proposals` | Latest generation with votes (and your own vote with `X-Edit-Token`) | Public (link) |
+| `POST` | `/trips/{id}/proposals` | Generate three proposals; moves the trip to `VOTING` | Creator session + CSRF |
+| `PUT` | `/trips/{id}/votes` | Cast or change your vote | `X-Edit-Token` |
+| `POST` | `/trips/{id}/confirm` | Close the vote and fix the winner | Creator session + CSRF |
+| `POST` | `/trips/{id}/plan` | Detail the winner and seed the checklist; moves the trip to `PLANNING` | Creator session + CSRF |
+| `GET` | `/trips/{id}/tasks` | The checklist | Public (link) |
+| `POST` | `/trips/{id}/tasks` | Add a task | `X-Edit-Token` |
+| `PATCH` | `/trips/{id}/tasks/{taskId}` | Claim, release or tick a task | `X-Edit-Token` |
 | `GET` | `/api/me` | The authenticated user, or `401` | Session |
 | `GET` | `/api/csrf` | Primes the `XSRF-TOKEN` cookie for the SPA | Public |
 | `GET` | `/ping` | Health check | Public |
 | `POST` | `/test/trips` | Seed a trip for E2E tests (disabled with the `prod` profile) | Non-production only |
 
-Invalid input returns `400` with a JSON error body, produced by a global exception handler.
+Errors are JSON bodies from a global exception handler: `400` invalid input, `401` unknown participant or no session, `403` not the creator, `409` wrong state (vote closed, tie), `422` too few participants, `429` generation limit or cooldown (with `Retry-After`), `502` invalid model output, `503` AI not configured or daily cap reached.
+
+Trip status flows `OPEN` → `VOTING` → `CONFIRMED` → `PLANNING`.
 
 ---
 
 ## Testing and CI
 
 ```bash
-# Backend (needs PostgreSQL: docker compose up -d)
+# Backend: tests run on in-memory H2, no Docker needed
 cd backend
 GOOGLE_CLIENT_ID=dummy GOOGLE_CLIENT_SECRET=dummy ./mvnw verify
+# Same feature against real PostgreSQL (docker compose up -d):
+POSTGRES_TEST_URL=jdbc:postgresql://localhost:5432/tripsync_data ./mvnw test -Dtest=PostgresFlowTest
 
 # Frontend
 cd frontend
@@ -220,9 +264,21 @@ npx playwright install chromium  # first time only
 npx playwright test              # `join-trip.spec.ts` needs the backend on :8080
 ```
 
+To run that backend without Docker, use H2 and the fake LLM:
+
+```bash
+cd backend
+SPRING_DATASOURCE_URL='jdbc:h2:mem:e2e;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=DAY' \
+SPRING_DATASOURCE_USERNAME=sa SPRING_DATASOURCE_PASSWORD= SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.h2.Driver \
+SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop LLM_PROVIDER=fake GOOGLE_CLIENT_ID=x GOOGLE_CLIENT_SECRET=x \
+./mvnw spring-boot:run -Dspring-boot.run.useTestClasspath=true
+```
+
+With `LLM_PROVIDER=fake`, `POST /test/trips/{id}/proposals` generates proposals as the trip creator without an OAuth session (non-production only).
+
 The frontend has unit tests for the pure logic (availability aggregation, form validation, proposal formatting and error mapping) and Playwright E2E specs for the landing, the join flow, the calendar interactions and the proposals voting UI. Most E2E specs mock the API so they run without a backend; `join-trip.spec.ts` runs against the real one.
 
-**Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request with three jobs. *Backend* builds and tests with Maven against a PostgreSQL service. *Frontend* runs ESLint, the type-checked production build and Vitest. *E2E* starts the real backend and runs the Playwright suite in Chromium, uploading the report when it fails. No secrets are required. Dependabot keeps Maven, npm, Docker and Actions dependencies up to date.
+**Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request with three jobs. *Backend* builds and tests with Maven; the unit and API tests run on H2, and `PostgresFlowTest` runs the whole feature against the PostgreSQL service. *Frontend* runs ESLint, the type-checked production build and Vitest. *E2E* starts the real backend and runs the Playwright suite in Chromium, uploading the report when it fails. No secrets are required. Dependabot keeps Maven, npm, Docker and Actions dependencies up to date.
 
 ---
 
@@ -277,6 +333,7 @@ cd backend && fly deploy
 Secrets via `fly secrets set`:
 
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
+- `LLM_API_KEY`: enables AI generation. Optional `LLM_MODEL`, `LLM_BASE_URL` and the limits above
 - `FRONTEND_URL=https://trip-sync-app-theta.vercel.app`: post-login redirect
 - `CORS_ALLOWED_ORIGINS=https://trip-sync-app-theta.vercel.app`
 - `OAUTH2_REDIRECT_URI=https://trip-sync-app-theta.vercel.app/backend/login/oauth2/code/google`: must be registered verbatim in the Google Cloud Console
@@ -345,11 +402,13 @@ An E2E test that drags across calendar days passed locally and failed in CI: the
 - [x] Availability heatmap, best window and shared budget
 - [x] Trip preferences and a redesigned UI (Golden Hour, light/dark)
 - [x] Trip proposals UI with voting and creator controls (against a typed API contract)
-- [ ] Proposals backend: generate three proposals with an LLM, voting, confirmation (the UI is ready; the endpoints are in progress)
+- [x] AI proposals: generation, voting, confirmation, with limits and strict output validation
+- [x] Detailed itinerary and shared checklist for the winning proposal
+- [x] Backend tests: unit, API flows on H2 and the same flow on PostgreSQL in CI
 - [ ] Close a trip (the `CLOSED` status is modeled; the endpoint is missing)
 - [ ] Edit already-submitted availability through the participant's edit token
-- [ ] Detailed itinerary and shared checklist for the winning proposal
-- [ ] Backend tests for services and controllers (currently a context-load test only)
+- [ ] Recovery link for participants who lose their edit token (vote and tasks are tied to it)
+- [ ] Booking links and real prices for the confirmed trip
 
 ---
 

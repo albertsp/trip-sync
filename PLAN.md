@@ -603,6 +603,24 @@ Verificado en la rama integrada: lint, build, 39 tests Vitest y 17 e2e Playwrigh
 - `POST /test/trips/{id}/proposals` (solo perfil no-prod): genera como creador sin OAuth para llegar a VOTING en desarrollo con `LLM_PROVIDER=fake`.
 - Tests: H2 en memoria con perfil `test` (`application-test.yaml`, BD aleatoria por contexto), MockMvc con `spring-security-test`. **80 tests en verde** (unitarios, flujo completo generar → votar → cambiar voto → confirmar, empates, 401/403/404/409/422/429/503, CSRF, privacidad). `BackendApplicationTests` ahora usa H2, así que el servicio Postgres del CI queda sin uso real.
 
+### Sprint 4, cierre (2026-10-06)
+- `.gitattributes` (LF en `mvnw`, CRLF en `*.cmd`); `backend/mvnw` ejecutable en git (era la causa de que el CI de backend no ejecutase ningún test).
+- `PostgresFlowTest`: el flujo completo (propuestas, voto, confirmación, plan, checklist) contra PostgreSQL real con `ddl-auto: update`; se activa con `POSTGRES_TEST_URL` y el CI lo define en el job de backend. **Aún no ejecutado**: no hay Postgres local, su primera ejecución será la del CI.
+- Página `/privacidad` (qué datos, uso de IA sin nombres ni correos, quién los ve, cookies, derechos) enlazada desde el inicio y el formulario de unirse, con e2e.
+- README al día: flujo, variables `LLM_*`, endpoints, tests sin Docker, despliegue y roadmap.
+- Dependabot ya tiene PRs abiertos para actions (checkout 7, setup-node 7, setup-java 6, upload-artifact 7): se mergean tras rebasarlos sobre `main` (`@dependabot rebase`), ya con `mvnw` ejecutable.
+- Producción: `LLM_API_KEY` ya está en los secretos de Fly, **pero el backend desplegado (v15, 25 sep) es anterior a toda la feature**: hay que desplegar (`cd backend && fly deploy`) tras pushear. Verificación posterior: `GET /trips/{id-inexistente}/proposals` debe devolver el JSON `{"error":"Not Found","message":...}` del handler propio, y `/test/trips` debe seguir en 404.
+
+### Benchmark con Mistral real (2026-10-06)
+- La cuenta tiene el plan gratuito con 10 $ de crédito, **sin plan Experiment**: `mistral-small*`, `mistral-medium` y `magistral` dan 429 con límite 0 y `mistral-large` da 403. Los límites van por modelo. Disponibles: `open-mistral-nemo` y `ministral-8b` (188 req/min), `ministral-3b` (750), `ministral-14b` (30 req/min, 937k tokens/min).
+- `RealProviderSmokeTest` (se salta sin `LLM_API_KEY`; ver su Javadoc para ejecutarlo) con 3 grupos ficticios (mixto de 5, playa de 3 con presupuesto justo, 6 con USD e inyección en las notas):
+  - **`ministral-14b-latest` (elegido)**: JSON estricto aceptado a la primera, sin enlaces, ignora la inyección, tareas cortas tras ajustar el prompt. ~11 s por propuestas y 7-23 s por plan, ~1.500-1.800 tokens por llamada (céntimos por generación completa).
+  - `ministral-8b-latest`: también válido, pero ignora el límite de longitud de las tareas y una llamada tardó 32 s; costes menos coherentes con el presupuesto.
+- Un `finish_reason=error` puntual del proveedor se resolvió con el reintento único, lo que confirma que ese camino funciona en real.
+- Ajustes de prompt a partir de lo observado: el destino no repite el país, los destinos deben existir, el plan usa solo las ciudades de origen del grupo, no inventa locales ni horarios y las tareas son una acción de ≤ 60 caracteres.
+- Limitación conocida: los modelos pequeños aún pueden equivocarse en geografía (una playa mal situada). Por eso la UI muestra "Estimaciones orientativas generadas por IA". Un modelo mayor, con plan de pago, mejoraría esto.
+- Timeout por defecto subido a 60 s; modelo por defecto `ministral-14b-latest`.
+
 ### Sprint 3 hecho (2026-10-06)
 - Backend: `POST /trips/{id}/plan` (creador + CSRF; estados CONFIRMED/PLANNING; tope `max-plan-generations-per-trip`, cooldown y tope diario compartido con las propuestas; reutilizable para regenerar). Segunda llamada al LLM (`PlanPromptBuilder`, `PlanSchemas`, `PlanParser`: días 1..N exactos, tareas sin repetir, saneado de enlaces); el `detail` de la ganadora es `{days:[{day,morning,afternoon,evening}], tips}` y las tareas sugeridas se siembran como `TripTask`. Regenerar conserva las tareas que alguien reclamó, marcó o creó.
 - `TripTask` + `GET/POST /trips/{id}/tasks` y `PATCH /trips/{id}/tasks/{taskId}` con `X-Edit-Token`: `{done}` y `{claimed}` (nadie asigna a otros; solo quien reclamó suelta). `TaskResponse` incluye `assigneeName` y `mine`. Solo en estado PLANNING; máximo 50 tareas.
