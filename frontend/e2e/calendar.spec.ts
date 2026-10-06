@@ -52,6 +52,9 @@ test.describe('Calendario: elegir días', () => {
   });
 
   test('arrastrar marca todos los días del recorrido', async ({ page }) => {
+    await settle(page);
+    // A trial click waits until the cell stops moving (entrance animation) without clicking it.
+    await day(page, /, 5 de octubre de 2026/).click({ trial: true });
     const from = await center(day(page, /, 5 de octubre de 2026/));
     const to = await center(day(page, /, 8 de octubre de 2026/));
 

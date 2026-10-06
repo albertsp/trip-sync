@@ -33,7 +33,10 @@ public class ParticipantController {
                 participant.getName(),
                 participant.getBudgetAmount(),
                 participant.getBudgetCurrency(),
-                participant.getEditToken()
+                participant.getEditToken(),
+                participant.getDestinationType(),
+                participant.getOriginCity(),
+                participant.getInterests()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

@@ -29,6 +29,7 @@ public class Trip {
     @JoinColumn(name = "creator_id")
     private User creator;
 
+    private Integer preferredDurationDays;
 
 
     public UUID getId() {
@@ -85,5 +86,13 @@ public class Trip {
 
     public void setCreator(User creator) {
         this.creator = creator;
+    }
+
+    public Integer getPreferredDurationDays() {
+        return preferredDurationDays;
+    }
+
+    public void setPreferredDurationDays(Integer preferredDurationDays) {
+        this.preferredDurationDays = preferredDurationDays;
     }
 }

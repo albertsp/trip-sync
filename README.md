@@ -1,155 +1,364 @@
 # TripSync
 
-> Group trip planner: everyone marks their free days and budget, TripSync turns it into a heatmap of the dates that work for the most people — no account needed to join.
+> Plan group trips without the chat chaos: everyone marks their free days and budget, TripSync turns it into a heatmap of the dates that work for the most people. No account needed to join.
 
+🌐 **[trip-sync-app-theta.vercel.app](https://trip-sync-app-theta.vercel.app)** · [Repository](https://github.com/albertsp/trip-sync)
+
+[![Live demo](https://img.shields.io/badge/Live_demo-trip--sync--app-2ea44f?style=flat&logo=vercel&logoColor=white)](https://trip-sync-app-theta.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/albertsp/trip-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/albertsp/trip-sync/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-4-6DB33F?style=flat&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+
+<p align="center">
+  <img src="docs/screenshots/landing.png" alt="TripSync landing page: headline, feature list and the boarding-pass style form to create a trip" width="900">
+</p>
+
+---
+
+## Table of contents
+
+- [Why this exists](#why-this-exists)
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Getting started](#getting-started)
+- [Environment variables](#environment-variables)
+- [API overview](#api-overview)
+- [Testing and CI](#testing-and-ci)
+- [Project structure](#project-structure)
+- [Deployment](#deployment)
+- [Technical decisions](#technical-decisions)
+- [Challenges and lessons learned](#challenges-and-lessons-learned)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Why this exists
 
-Organizing a group trip usually means a chat thread where ten people argue about dates and nobody wants to admit their real budget. I wanted a tool that turns "when can everyone go" into a single visual — a calendar where the darkest days are the ones with the most availability — without forcing every participant to create an account just to answer two questions.
+Organizing a group trip usually means a chat thread where ten people argue about dates and nobody wants to admit their real budget. I wanted a tool that turns "when can everyone go" into a single visual, a calendar where the darkest days are the ones with the most availability, without forcing every participant to create an account just to answer two questions.
+
+**TripSync** lets one person create a trip and share a link. Everyone else opens it, marks their free days and budget, and the group sees the best dates at a glance. The interface is in Spanish.
+
+---
+
+## Features
+
+| | |
+|---|---|
+| ![Join form: pick your free days on the calendar, set your budget and travel preferences](docs/screenshots/join.png) | ![Summary page with the availability heatmap, best window, group budget and trip proposals](docs/screenshots/summary.png) |
+
+- **Availability heatmap**: the more people are free on a day, the warmer the cell. Hover a day to see how many can go.
+- **Best window**: the stretch of consecutive days that fits the most people for the trip duration, highlighted on the calendar.
+- **Custom calendar**: click, drag across days or use the keyboard (arrow keys + space) to mark your free days. Touch-friendly, with `aria-pressed` states for screen readers.
+- **Shared budget**: the minimum budget of the group, so nobody is left out.
+- **No account to join**: only the creator signs in (Google). Participants just need the link.
+- **Trip preferences**: destination type, interests, origin city and notes, collected when joining.
+- **Trip proposals and voting**: three destination proposals with cost breakdown and fit score, one vote per participant, creator controls to regenerate and close the vote. The interface is complete; see the [Roadmap](#roadmap) for the backend status.
+- **Light and dark themes** with a "Golden Hour" visual identity.
+
+<p align="center">
+  <img src="docs/screenshots/summary-dark.png" alt="Summary page in the dark theme" width="600">
+</p>
+
+---
 
 ## How it works
 
-1. A user signs in with Google and creates a trip with a title and a range of possible dates.
+1. A user signs in with Google and creates a trip with a title, a range of possible dates and a preferred duration.
 2. They share the generated link with the group.
-3. Anyone who opens the link marks their available dates and budget — no account required.
-4. The summary page shows a calendar heatmap (the more people free on a day, the darker it is) and the group's minimum shared budget.
+3. Anyone who opens the link marks their available dates, budget and preferences, no account required.
+4. The summary page shows the heatmap, the best window and the group's minimum shared budget.
 
-## Screenshots
+---
 
-*(add here: Landing/creation, JoinForm, SummaryTrip heatmap)*
+## Tech stack
 
-## Stack
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + TypeScript 5 + Vite 7 |
+| Styling | Tailwind CSS v4 + custom design tokens |
+| Routing | React Router 7 |
+| Animations | Motion |
+| Backend | Spring Boot 4 (Java 21): Web, Data JPA, Security, OAuth2 Client |
+| Database | PostgreSQL 16 |
+| Auth | Google OAuth2 + cookie sessions + CSRF protection |
+| Testing | Vitest (unit), Playwright (E2E), JUnit 5 + Spring Boot Test (backend) |
+| CI | GitHub Actions |
+| Deployment | Vercel (frontend) + Fly.io (backend) |
 
-**Backend**
-- Java 21 · Spring Boot 4 (Web, Data JPA, Security, OAuth2 Client)
-- PostgreSQL
-
-**Frontend**
-- React 19 · TypeScript · Vite
-- React Router, react-day-picker
-
-**Infra**
-- Docker Compose (PostgreSQL)
+---
 
 ## Architecture
 
 ```
-frontend/   React + TypeScript SPA (Vite)
-backend/    Spring Boot REST API
-            ├── controllers/   HTTP endpoints
-            ├── service/       business logic
-            ├── repositories/  data access (Spring Data JPA)
-            ├── domain/        JPA entities
-            └── dtos/          API request/response contracts
+┌──────────────────┐  /backend/* proxy   ┌──────────────────┐     ┌────────────┐
+│  React SPA       │ ──────────────────▶ │  Spring Boot API │ ──▶ │ PostgreSQL │
+│  (Vercel)        │ ◀────────────────── │  (Fly.io)        │     └────────────┘
+└──────────────────┘   first-party       └────────┬─────────┘
+                       cookies                    │
+                                          ┌───────▼────────┐
+                                          │ Google OAuth2  │
+                                          └────────────────┘
 ```
 
-Authentication runs through Google OAuth2 via Spring Security, with cookie-based sessions and CSRF protection (`XSRF-TOKEN`) on state-changing requests. Only trip creation requires authentication; joining a trip and viewing its summary are public actions gated solely by the shared link.
+1. The browser only ever talks to the Vercel domain. A rewrite (`/backend/*` → Fly.io) proxies API calls, so the session and CSRF cookies are first-party.
+2. Authentication uses Google OAuth2 through Spring Security, with a cookie-based session and CSRF protection (`XSRF-TOKEN`) on state-changing requests.
+3. Only trip creation requires authentication. Joining a trip and viewing its summary are public actions gated by the shared link.
+
+---
+
+## Getting started
+
+### Prerequisites
+
+- Java 21
+- Node.js 22 (see `frontend/.nvmrc`; with nvm or fnm, run `nvm use` inside `frontend/`)
+- Docker (for the local PostgreSQL database)
+- Google OAuth2 credentials from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials), with:
+  - Authorized origin: `http://localhost:5173`
+  - Redirect URI: `http://localhost:8080/login/oauth2/code/google`
+
+### Setup
+
+```bash
+git clone https://github.com/albertsp/trip-sync.git
+cd trip-sync
+
+# Database (PostgreSQL on localhost:5432, database `tripsync_data`)
+docker compose up -d
+
+# Frontend
+cd frontend
+npm install
+cp .env.example .env            # API and app base URLs for local development
+```
+
+### Run the project
+
+```bash
+# Terminal 1: backend
+cd backend
+export GOOGLE_CLIENT_ID=your_client_id          # Windows PowerShell: $env:GOOGLE_CLIENT_ID="..."
+export GOOGLE_CLIENT_SECRET=your_client_secret
+./mvnw spring-boot:run                          # http://localhost:8080
+
+# Terminal 2: frontend
+cd frontend && npm run dev                      # http://localhost:5173
+```
+
+The database container started in the setup step keeps running in the background. `backend/.env.example` lists every variable the backend reads.
+
+---
+
+## Environment variables
+
+**Backend** (see `backend/.env.example`)
+
+| Variable | Required | Description |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth2 credentials. The app refuses to start without them. |
+| `DATABASE_URL` | No locally | JDBC URL. Defaults to `jdbc:postgresql://localhost:5432/tripsync_data`, matching `docker-compose.yml`. |
+| `DATABASE_USERNAME` / `DATABASE_PASSWORD` | No locally | Database credentials. Defaults match `docker-compose.yml`. |
+| `FRONTEND_URL` | No locally | Where the user lands after login. Default `http://localhost:5173`. |
+| `CORS_ALLOWED_ORIGINS` | No locally | Allowed frontend origins. Default `http://localhost:5173`. |
+| `OAUTH2_REDIRECT_URI` | Production | Public redirect URI registered in Google, e.g. `https://<frontend>/backend/login/oauth2/code/google`. |
+| `COOKIE_SAME_SITE` / `COOKIE_SECURE` | Production | Session cookie flags. `Lax` / `false` locally. |
+| `SPRING_PROFILES_ACTIVE` | Production | Set to `prod` to disable the test-only seed endpoint. |
+
+**Frontend** (see `frontend/.env.example`)
+
+| Variable | Description |
+|---|---|
+| `VITE_API_BASE_URL` | Base URL of the backend. `http://localhost:8080` locally, `/backend` in production. |
+| `VITE_APP_BASE_URL` | Public URL of the app, used to build share links. |
+
+> Never commit real secrets. Use the `.env.example` files as templates and keep `.env` files out of git.
+
+---
+
+## API overview
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| `POST` | `/trips` | Create a trip | Google session |
+| `GET` | `/trips/{id}` | Get a trip's data | Public (link) |
+| `POST` | `/trips/{id}/participants` | Join with dates, budget and preferences | Public (link) |
+| `GET` | `/trips/{id}/summary` | Availability per day, participant count and group budget | Public (link) |
+| `GET` | `/api/me` | The authenticated user, or `401` | Session |
+| `GET` | `/api/csrf` | Primes the `XSRF-TOKEN` cookie for the SPA | Public |
+| `GET` | `/ping` | Health check | Public |
+| `POST` | `/test/trips` | Seed a trip for E2E tests (disabled with the `prod` profile) | Non-production only |
+
+Invalid input returns `400` with a JSON error body, produced by a global exception handler.
+
+---
+
+## Testing and CI
+
+```bash
+# Backend (needs PostgreSQL: docker compose up -d)
+cd backend
+GOOGLE_CLIENT_ID=dummy GOOGLE_CLIENT_SECRET=dummy ./mvnw verify
+
+# Frontend
+cd frontend
+npm run lint
+npm run build                    # type-check + production build
+npm test                         # unit tests (Vitest)
+
+# End to end
+npx playwright install chromium  # first time only
+npx playwright test              # `join-trip.spec.ts` needs the backend on :8080
+```
+
+The frontend has unit tests for the pure logic (availability aggregation, form validation, proposal formatting and error mapping) and Playwright E2E specs for the landing, the join flow, the calendar interactions and the proposals voting UI. Most E2E specs mock the API so they run without a backend; `join-trip.spec.ts` runs against the real one.
+
+**Continuous integration**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request with three jobs. *Backend* builds and tests with Maven against a PostgreSQL service. *Frontend* runs ESLint, the type-checked production build and Vitest. *E2E* starts the real backend and runs the Playwright suite in Chromium, uploading the report when it fails. No secrets are required. Dependabot keeps Maven, npm, Docker and Actions dependencies up to date.
+
+---
+
+## Project structure
+
+```
+trip-sync/
+├── .github/
+│   ├── workflows/ci.yml               # CI: backend, frontend, e2e
+│   ├── ISSUE_TEMPLATE/ · PULL_REQUEST_TEMPLATE.md · dependabot.yml
+├── backend/
+│   ├── src/main/java/com/albertsp/tripsync/backend/
+│   │   ├── config/                    # Security (OAuth2, CSRF), CORS
+│   │   ├── controllers/               # HTTP endpoints (+ test-only seed controller)
+│   │   ├── service/                   # Business logic and validation
+│   │   ├── repositories/              # Spring Data JPA
+│   │   ├── domain/                    # JPA entities and enums
+│   │   ├── dtos/                      # API request/response contracts
+│   │   └── exceptions/                # Domain exceptions + global handler
+│   ├── Dockerfile
+│   ├── fly.toml
+│   └── pom.xml
+├── frontend/
+│   ├── src/
+│   │   ├── components/                # Landing, JoinForm, SummaryTrip, calendar/, ui/, motion/
+│   │   ├── lib/                       # API client, availability, forms, formatting (+ unit tests)
+│   │   ├── mocks/                     # Proposals contract sample
+│   │   └── types.ts                   # Shared API types
+│   ├── e2e/                           # Playwright specs
+│   └── vercel.json                    # /backend/* rewrite to Fly.io
+├── docs/screenshots/
+├── docker-compose.yml                 # Local PostgreSQL
+├── CONTRIBUTING.md · SECURITY.md · LICENSE
+└── README.md
+```
+
+---
+
+## Deployment
+
+**Frontend: Vercel** (Root Directory `frontend/`, branch `main`). Build environment variables:
+
+- `VITE_API_BASE_URL=/backend`: all API calls go through the same-origin proxy declared in `frontend/vercel.json`.
+- `VITE_APP_BASE_URL=https://trip-sync-app-theta.vercel.app`: base for share links.
+
+**Backend: Fly.io** (`trip-sync-api`, config in `backend/fly.toml`, built with the multi-stage `backend/Dockerfile`).
+
+```bash
+cd backend && fly deploy
+```
+
+Secrets via `fly secrets set`:
+
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
+- `FRONTEND_URL=https://trip-sync-app-theta.vercel.app`: post-login redirect
+- `CORS_ALLOWED_ORIGINS=https://trip-sync-app-theta.vercel.app`
+- `OAUTH2_REDIRECT_URI=https://trip-sync-app-theta.vercel.app/backend/login/oauth2/code/google`: must be registered verbatim in the Google Cloud Console
+- `COOKIE_SAME_SITE=None`, `COOKIE_SECURE=true`
+
+The browser only ever talks to the Vercel domain (`/backend/*` is rewritten to Fly), so the session and CSRF cookies are first-party. The machine is kept running (`min_machines_running = 1`) because a cold start in the middle of an OAuth login breaks the flow.
+
+---
 
 ## Technical decisions
 
 **No account to join a trip**
-The person creating the trip is the only one who needs an identity (their Google account, mostly to prevent throwaway spam trips). Participants only need the link — matching how these plans actually get shared, over WhatsApp or email, by people who won't sign up for one-off use.
+The person creating the trip is the only one who needs an identity (their Google account, mostly to prevent throwaway spam trips). Participants only need the link, matching how these plans actually get shared, over WhatsApp or email, by people who won't sign up for one-off use.
 
 **Cookie-based sessions with explicit CSRF handling**
-Spring Security's default `CsrfTokenRequestHandler` XOR-masks the token it issues, but a React SPA reading the `XSRF-TOKEN` cookie directly sends back the raw value — every state-changing request came back `403` even with a valid session. Fixed by switching to `CsrfTokenRequestAttributeHandler` (plain token, no masking) and adding a dedicated `/api/csrf` endpoint the frontend calls to prime the cookie before its first `POST`.
+Spring Security's default `CsrfTokenRequestHandler` XOR-masks the token it issues, but a React SPA reading the `XSRF-TOKEN` cookie directly sends back the raw value, so every state-changing request came back `403` even with a valid session. Fixed by switching to `CsrfTokenRequestAttributeHandler` (plain token, no masking) and adding a dedicated `/api/csrf` endpoint the frontend calls to prime the cookie before its first `POST`.
 
-**CORS with credentials, split origins**
-Frontend (`:5173`) and backend (`:8080`) run on different origins in development, so cross-site cookies require `CORS` explicitly configured with `allowCredentials(true)` and the frontend issuing requests with `credentials: 'include'` — a default CORS setup silently drops the session cookie instead of failing loudly, which makes it a easy to overlook until auth "randomly" stops working.
+**Same-origin proxy instead of cross-site cookies**
+Browsers increasingly block third-party cookies, and a frontend on Vercel talking to a backend on Fly.io is cross-site. Instead of relying on `SameSite=None` alone, a Vercel rewrite exposes the API under `/backend/*` on the frontend's own domain, so the cookies are first-party. `forward-headers-strategy: framework` makes Spring rebuild the public host and scheme behind the proxy, which the OAuth2 redirect URI depends on.
+
+**CORS with credentials in development**
+Frontend (`:5173`) and backend (`:8080`) run on different origins locally, so cross-site cookies need CORS explicitly configured with `allowCredentials(true)` and the frontend issuing requests with `credentials: 'include'`. A default CORS setup silently drops the session cookie instead of failing loudly, which makes it easy to overlook until auth "randomly" stops working.
 
 **Per-participant edit token instead of accounts**
-Each participant gets a random token when they submit their availability, stored alongside their response. It's the mechanism planned for letting someone update their answer later without needing a login — the same "no friction" principle applied to editing, not just joining.
+Each participant gets a random token when they join, saved in `localStorage` and stored alongside their response. It identifies the voter in the proposals flow (`X-Edit-Token` header) without a login, the same "no friction" principle applied to returning visitors.
 
-## Challenges
+**Test-only seed endpoint, gated by profile**
+E2E tests need a trip owned by a signed-in user, and automating Google login is brittle. A `/test/trips` endpoint creates one directly, registered only under `@Profile("!prod")` and excluded from CSRF checks, so it cannot exist in production.
+
+**A purpose-built calendar**
+Off-the-shelf date pickers don't paint ranges by dragging or render a heatmap. The calendar is custom: pointer events with a separate touch path (so scrolling the page doesn't paint days), roving keyboard focus, and the same grid reused read-only for the heatmap.
+
+---
+
+## Challenges and lessons learned
 
 **Debugging a 403 that only showed up from the browser**
-`POST /trips` worked fine from `curl` with a manually copied token, but always failed from the app. Reproducing it with the browser's dev tools open showed the cookie and header values being sent were identical strings — which ruled out a frontend bug and pointed at the token comparison on the server. Reading Spring Security's `CsrfTokenRequestHandler` source clarified this: the default handler expects to decode a masked token, and a manually-read cookie value was never going to match. This is the kind of bug that's invisible in the code and only shows up once real, cross-origin browser behavior is exercised — matches the commit `cc746c6`.
+`POST /trips` worked from `curl` with a manually copied token but always failed from the app. With dev tools open, the cookie and header values were identical strings, which ruled out a frontend bug and pointed at the token comparison on the server. Reading Spring Security's `CsrfTokenRequestHandler` source explained it: the default handler expects to decode a masked token, and a raw cookie value was never going to match. The kind of bug that's invisible in the code and only appears with real browser behavior.
 
 **Gating a feature behind auth without a login page**
-Trip creation needed to require Google sign-in, but adding a full login screen would work against the "zero-friction" pitch. Solved by keeping a single Landing page that checks `/api/me` on load and reveals the create-trip form once a session exists, with sign-in itself reduced to one "Continue with Google" button.
+Trip creation needed Google sign-in, but a full login screen would work against the zero-friction pitch. The Landing page checks `/api/me` on load and reveals the create-trip form once a session exists, with sign-in reduced to one "Continue with Google" button.
 
-## Getting started
+**OAuth behind a proxy**
+Login worked locally and failed in production: Spring built the OAuth redirect URI from the internal `http://` host Fly forwarded, not the public one. The fix was forwarded-header handling plus an explicit, configurable `redirect-uri` registered verbatim in Google. A failed login also lands on the backend's own domain, which is a known rough edge of the flow.
 
-### Requirements
+**Flaky drag test caused by animations**
+An E2E test that drags across calendar days passed locally and failed in CI: the cells were still mid-entrance-animation when the mouse went down. Waiting on `document.getAnimations()` wasn't enough because the animation library doesn't always expose its animations there; a Playwright *trial click* (which waits for the element to stop moving) fixed it without arbitrary sleeps.
 
-- Java 21
-- Node 20+
-- Docker (for PostgreSQL)
-- Google OAuth2 credentials ([Google Cloud Console](https://console.cloud.google.com/apis/credentials)) with:
-  - Authorized origin: `http://localhost:5173`
-  - Redirect URI: `http://localhost:8080/login/oauth2/code/google`
-  - Production origin: `https://trip-sync-app-theta.vercel.app`
-  - Production redirect URI: `https://trip-sync-app-theta.vercel.app/backend/login/oauth2/code/google`
+---
 
-### 1. Database
+## Troubleshooting
 
-```bash
-docker compose up -d
-```
+| Problem | Likely cause and fix |
+|---|---|
+| Backend fails on startup with a placeholder error for `GOOGLE_CLIENT_ID` | The variable isn't set. Export `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (dummy values are fine to run the tests). |
+| `Connection refused` on port 5432 | The database container isn't running: `docker compose up -d`. |
+| `403` on `POST /trips` | The CSRF cookie wasn't primed or the request lacks `credentials: 'include'`. Check that `/api/csrf` was called first. |
+| Google login: `redirect_uri_mismatch` | The redirect URI registered in Google doesn't match the one the backend builds. In production set `OAUTH2_REDIRECT_URI` to the exact registered value. |
+| Logged in but the session is lost after redirect | Cross-site cookie blocked. Locally keep `COOKIE_SAME_SITE=Lax`; in production use the `/backend/*` proxy with `None` + `Secure`. |
+| `join-trip.spec.ts` fails with connection errors | That spec needs the real backend running on `:8080`; the others mock the API. |
 
-Starts PostgreSQL on `localhost:5432` with the `tripsync_data` database.
+---
 
-### 2. Backend
+## Roadmap
 
-Set your Google credentials as environment variables before starting:
+- [x] Availability heatmap, best window and shared budget
+- [x] Trip preferences and a redesigned UI (Golden Hour, light/dark)
+- [x] Trip proposals UI with voting and creator controls (against a typed API contract)
+- [ ] Proposals backend: generate three proposals with an LLM, voting, confirmation (the UI is ready; the endpoints are in progress)
+- [ ] Close a trip (the `CLOSED` status is modeled; the endpoint is missing)
+- [ ] Edit already-submitted availability through the participant's edit token
+- [ ] Detailed itinerary and shared checklist for the winning proposal
+- [ ] Backend tests for services and controllers (currently a context-load test only)
 
-```bash
-export GOOGLE_CLIENT_ID=your_client_id
-export GOOGLE_CLIENT_SECRET=your_client_secret
-```
+---
 
-```bash
-cd backend
-./mvnw spring-boot:run
-```
+## Contributing
 
-The API is available at `http://localhost:8080`.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the checks that must pass and the commit conventions.
 
-### 3. Frontend
+---
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## License
 
-The app is available at `http://localhost:5173`.
-
-## Main endpoints
-
-| Method | Route | Description | Auth |
-|---|---|---|---|
-| POST | `/trips` | Creates a trip | Required (Google) |
-| GET | `/trips/{id}` | Gets a trip's data | Public |
-| POST | `/trips/{id}/participants` | Joins a participant with their dates and budget | Public |
-| GET | `/trips/{id}/summary` | Returns the availability heatmap and group budget | Public |
-| GET | `/api/me` | Returns the authenticated user (or 401) | — |
-
-## Deployment
-
-**Frontend → Vercel** (`trip-sync-app`, Root Directory `frontend/`, branch `main`). Build env vars:
-
-- `VITE_API_BASE_URL=/backend` — all API calls go through the same-origin proxy declared in `frontend/vercel.json`
-- `VITE_APP_BASE_URL=https://trip-sync-app-theta.vercel.app` — base for share links
-
-**Backend → Fly.io** (`trip-sync-api`, config in `backend/fly.toml`). Secrets via `fly secrets set`:
-
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
-- `FRONTEND_URL=https://trip-sync-app-theta.vercel.app` — post-login redirect
-- `CORS_ALLOWED_ORIGINS=https://trip-sync-app-theta.vercel.app`
-- `OAUTH2_REDIRECT_URI=https://trip-sync-app-theta.vercel.app/backend/login/oauth2/code/google` — must be registered verbatim in Google Cloud Console and matches the `/backend/*` proxy path
-- `COOKIE_SAME_SITE=None`, `COOKIE_SECURE=true`
-
-The browser only ever talks to the Vercel domain (`/backend/*` is rewritten to Fly), so the session and CSRF cookies are first-party.
-
-## Project status
-
-This is a functional MVP built as a portfolio project. Planned next steps:
-
-- Closing a trip (the data model already supports the `CLOSED` status; the endpoint is still missing).
-- Editing already-submitted availability via each participant's edit token.
-- Automated backend and frontend tests.
+Released under the [MIT License](LICENSE).

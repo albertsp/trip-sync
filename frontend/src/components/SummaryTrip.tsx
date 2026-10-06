@@ -9,6 +9,7 @@ import { CopyLinkField } from "./CopyLinkField";
 import { Stagger, StaggerItem } from "./motion/Stagger";
 import { CountUp } from "./ui/CountUp";
 import { ShellHeader } from "./ShellHeader";
+import { TripProposals } from "./TripProposals";
 import type {
   RequestStatus,
   SummaryResponse,
@@ -17,7 +18,9 @@ import type {
 } from "../types";
 
 /** The trip only refines the view (title and window), so a failure here isn't fatal. */
-async function fetchTripWindow(tripId: string): Promise<TripWindow | null> {
+async function fetchTripWindow(
+  tripId: string,
+): Promise<(TripWindow & { creatorId: string }) | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/trips/${tripId}`);
     if (!response.ok) return null;
@@ -27,6 +30,7 @@ async function fetchTripWindow(tripId: string): Promise<TripWindow | null> {
       windowStart: stringToDate(data.windowStart),
       windowEnd: stringToDate(data.windowEnd),
       status: data.status,
+      creatorId: data.creatorId,
     };
   } catch {
     return null;
@@ -38,7 +42,7 @@ export function SummaryTrip() {
 
   const [status, setStatus] = useState<RequestStatus>("idle");
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
-  const [trip, setTrip] = useState<TripWindow | null>(null);
+  const [trip, setTrip] = useState<(TripWindow & { creatorId: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -203,6 +207,13 @@ export function SummaryTrip() {
                 />
               </StaggerItem>
             </div>
+
+            <StaggerItem className="mt-10 border-t border-line pt-8">
+              <TripProposals
+                tripId={tripId ?? ""}
+                creatorId={trip?.creatorId ?? null}
+              />
+            </StaggerItem>
           </Stagger>
         )}
       </div>

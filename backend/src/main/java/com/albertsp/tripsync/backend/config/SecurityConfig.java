@@ -40,7 +40,9 @@ public class SecurityConfig {
                 .csrf((csrf) -> csrf
                         .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/trips/*/participants", "/test/**"));
+                        // Votes and tasks authenticate with the X-Edit-Token header, not a cookie, so CSRF does not apply.
+                        // POST /proposals, /confirm and /plan stay protected: they act with the creator's session cookie.
+                        .ignoringRequestMatchers("/trips/*/participants", "/trips/*/votes", "/trips/*/tasks/**", "/test/**"));
 
         return http.build();
     }

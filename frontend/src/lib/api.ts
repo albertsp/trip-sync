@@ -18,3 +18,26 @@ export async function initializeCsrf(): Promise<void> {
 		credentials: "include",
 	});
 }
+
+/** Headers for a cookie-authenticated mutation: fetches the CSRF cookie first if it is missing. */
+export async function csrfHeaders(): Promise<Record<string, string>> {
+	if (!getCookie("XSRF-TOKEN")) {
+		try {
+			await initializeCsrf();
+		} catch (error) {
+			console.error("Could not initialize CSRF: ", error);
+		}
+	}
+
+	const token = getCookie("XSRF-TOKEN");
+	return token ? { "X-XSRF-TOKEN": token } : {};
+}
+
+/** Participant edit token saved by JoinForm, or null when the visitor never joined. */
+export function readEditToken(tripId: string): string | null {
+	try {
+		return localStorage.getItem(`tripsync:editToken:${tripId}`);
+	} catch {
+		return null;
+	}
+}
