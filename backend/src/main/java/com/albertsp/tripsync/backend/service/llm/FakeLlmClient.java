@@ -1,5 +1,6 @@
 package com.albertsp.tripsync.backend.service.llm;
 
+import com.albertsp.tripsync.backend.service.llm.plan.PlanSchemas;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalPromptFormat;
 import com.albertsp.tripsync.backend.service.llm.proposal.ProposalSchemas;
 import tools.jackson.databind.json.JsonMapper;
@@ -24,12 +25,13 @@ public class FakeLlmClient implements LlmClient {
 
     @Override
     public LlmResult complete(String systemInstruction, String userContent, LlmSchema schema) {
-        if (!ProposalSchemas.PROPOSALS_NAME.equals(schema.name())) {
-            throw new IllegalArgumentException("FakeLlmClient does not know the schema " + schema.name());
-        }
         int days = ProposalPromptFormat.readDays(userContent, DEFAULT_DAYS);
-        String currency = ProposalPromptFormat.readCurrency(userContent, "EUR");
-        return new LlmResult(proposalsJson(days, currency), "stop", LlmUsage.NONE);
+        String json = switch (schema.name()) {
+            case ProposalSchemas.PROPOSALS_NAME -> proposalsJson(days, ProposalPromptFormat.readCurrency(userContent, "EUR"));
+            case PlanSchemas.PLAN_NAME -> planJson(days);
+            default -> throw new IllegalArgumentException("FakeLlmClient does not know the schema " + schema.name());
+        };
+        return new LlmResult(json, "stop", LlmUsage.NONE);
     }
 
     @Override
@@ -40,6 +42,22 @@ public class FakeLlmClient implements LlmClient {
     @Override
     public String model() {
         return "fake";
+    }
+
+    private String planJson(int days) {
+        ObjectNode root = mapper.createObjectNode();
+        ArrayNode dayNodes = root.putArray("days");
+        for (int day = 1; day <= days; day++) {
+            ObjectNode d = dayNodes.addObject();
+            d.put("day", day);
+            d.put("morning", "Desayuno tranquilo y paseo por el centro (día " + day + ").");
+            d.put("afternoon", "Comida local y actividad principal del día " + day + ".");
+            d.put("evening", "Cena en grupo y tiempo libre.");
+        }
+        root.putArray("tips").add("Reservad el alojamiento cuanto antes.").add("Llevad calzado cómodo.");
+        root.putArray("tasks").add("Reservar alojamiento").add("Organizar el transporte desde cada ciudad")
+                .add("Decidir quién lleva el coche").add("Reservar mesa para la cena del primer día");
+        return mapper.writeValueAsString(root);
     }
 
     private String proposalsJson(int days, String currency) {
