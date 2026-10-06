@@ -1,0 +1,3 @@
+# The Maven wrapper runs on Linux (CI, Fly build): it must keep LF endings.
+backend/mvnw text eol=lf
+*.cmd text eol=crlf
