@@ -38,6 +38,8 @@ public class TripProposal {
     /** When the detail was last generated, and how many times (cap and cooldown for POST /plan). */
     private LocalDateTime detailGeneratedAt;
 
+    /** Default 0 so Hibernate can add the column to a table that already has rows (ddl-auto: update). */
+    @Column(columnDefinition = "integer default 0 not null")
     private int planGenerations;
 
     private String model;
