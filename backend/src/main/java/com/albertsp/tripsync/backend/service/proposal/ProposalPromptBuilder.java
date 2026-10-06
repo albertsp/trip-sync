@@ -20,6 +20,9 @@ public final class ProposalPromptBuilder {
 
             REGLAS
             - Las fechas y la duración están decididas: no inventes otras. "days" tiene exactamente DURACION_DIAS líneas, una por día.
+            - destination es solo el nombre del lugar o región (por ejemplo "Sierra de Guadarrama"); el país va aparte en country.
+            - Los destinos deben existir de verdad y ser coherentes con lo que pide el grupo (una playa tiene que estar en la costa): no inventes lugares.
+            - Ten en cuenta las ciudades de origen del grupo para el transporte y el coste.
             - Coste por persona desglosado en transport, lodging, food y activities, en la DIVISA indicada, con números mayores que 0.
             - Todos los textos en español. Sin enlaces, sin HTML y sin markdown.
             - whyFits: 1-2 frases con fechas, presupuesto e intereses. tradeoffs: a qué renuncia esta opción.

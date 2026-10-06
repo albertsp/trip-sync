@@ -32,9 +32,9 @@ app:
     provider: ${LLM_PROVIDER:openai-compatible} # openai-compatible | fake (fake only for dev/e2e)
     base-url: ${LLM_BASE_URL:https://api.mistral.ai/v1}
     api-key: ${LLM_API_KEY:}
-    model: ${LLM_MODEL:mistral-small-latest}
+    model: ${LLM_MODEL:ministral-14b-latest}
     max-output-tokens: ${LLM_MAX_OUTPUT_TOKENS:8192}
-    timeout-ms: ${LLM_TIMEOUT_MS:45000}
+    timeout-ms: ${LLM_TIMEOUT_MS:60000}
     max-generations-per-trip: ${LLM_MAX_GENERATIONS_PER_TRIP:3}
     max-plan-generations-per-trip: ${LLM_MAX_PLAN_GENERATIONS_PER_TRIP:2}
     cooldown-seconds: ${LLM_COOLDOWN_SECONDS:60}
