@@ -48,6 +48,9 @@ jobs:
           cache: maven
 
       - name: Build and test
+        env:
+          # Enables PostgresFlowTest: the full feature against the service container above.
+          POSTGRES_TEST_URL: jdbc:postgresql://localhost:5432/tripsync_data
         run: ./mvnw -B verify
 
   frontend:
