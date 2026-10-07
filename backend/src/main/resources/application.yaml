@@ -5,9 +5,13 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tripsync_data}
     username: ${DATABASE_USERNAME:tripsync}
     password: ${DATABASE_PASSWORD:tripsync123}
+  flyway:
+    # Databases created before Flyway (ddl-auto=update) are baselined at V1 instead of re-running it.
+    baseline-on-migrate: true
+    baseline-version: 1
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:

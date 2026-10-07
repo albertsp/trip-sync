@@ -124,7 +124,7 @@ The model output is never trusted: it is read with strict JSON parsing, cleaned 
                                           └────────────────┘
 ```
 
-1. The schema is created and extended by Hibernate (`ddl-auto: update`), so a deploy adds the new tables and columns on its own; new numeric columns carry a database default so they can be added to tables that already have rows.
+1. The schema is owned by Flyway: every change is a versioned script in `backend/src/main/resources/db/migration` (`V1__baseline.sql`, `V2__...`) that runs on startup, and Hibernate only validates (`ddl-auto: validate`) that the entities still match. A new column, table or enum value therefore needs its own migration.
 
 The browser only ever talks to the Vercel domain. A rewrite (`/backend/*` → Fly.io) proxies API calls, so the session and CSRF cookies are first-party. 2. Authentication uses Google OAuth2 through Spring Security, with a cookie-based session and CSRF protection (`XSRF-TOKEN`) on state-changing requests. 3. Two kinds of caller: the **creator** acts with the Google session (create the trip, generate proposals, confirm, plan) and every one of those requests is CSRF-protected. **Participants** need no account: joining is public, and voting and checklist actions use their personal `X-Edit-Token` header. 4. The AI layer sits behind an `LlmClient` interface (OpenAI-compatible, fake for tests and E2E, disabled when no API key is set). `StructuredLlmService` parses the JSON and validates it against a schema and Bean Validation before anything is used.
 
@@ -458,7 +458,7 @@ An E2E test that drags across calendar days passed locally and failed in CI: the
 - [ ] Close a trip (the `CLOSED` status is modeled; the endpoint is missing)
 - [ ] Edit already-submitted availability through the participant's edit token
 - [ ] Group budget per currency (today the summary minimum ignores the currency)
-- [ ] Versioned database migrations (Flyway) instead of `ddl-auto: update`
+- [x] Versioned database migrations (Flyway) instead of `ddl-auto: update`
 - [ ] Recovery link for participants who lose their edit token (vote and tasks are tied to it)
 - [ ] Booking links and real prices for the confirmed trip
 
