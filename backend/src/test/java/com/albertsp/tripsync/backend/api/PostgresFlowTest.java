@@ -18,7 +18,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * The whole feature against a real PostgreSQL, built with {@code ddl-auto: update} exactly like production.
+ * The whole feature against a real PostgreSQL, with the schema built by the Flyway migrations and checked against the
+ * entities ({@code ddl-auto: validate}) exactly like production.
  * H2 hides dialect problems (reserved words, column types, locking), so CI runs this against its Postgres service.
  * Locally it is skipped unless POSTGRES_TEST_URL is set, e.g. after {@code docker compose up -d}:
  * {@code POSTGRES_TEST_URL=jdbc:postgresql://localhost:5432/tripsync_data ./mvnw test -Dtest=PostgresFlowTest}
@@ -29,7 +30,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.datasource.username=${POSTGRES_TEST_USER:tripsync}",
         "spring.datasource.password=${POSTGRES_TEST_PASSWORD:tripsync123}",
         "spring.datasource.driver-class-name=org.postgresql.Driver",
-        "spring.jpa.hibernate.ddl-auto=update"
+        "spring.flyway.enabled=true",
+        "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

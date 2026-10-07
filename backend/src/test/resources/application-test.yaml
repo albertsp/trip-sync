@@ -6,6 +6,8 @@ spring:
     username: sa
     password: ""
     driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false # the schema is the Postgres one, tests build theirs from the entities on H2
   jpa:
     hibernate:
       ddl-auto: create-drop
